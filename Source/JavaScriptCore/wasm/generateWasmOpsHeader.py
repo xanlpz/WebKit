@@ -214,6 +214,7 @@ inline bool isValidType(Int i)
 }
 #undef CREATE_CASE
 
+#if ENABLE(WEBASSEMBLY_B3JIT)
 #define CREATE_CASE(name, id, b3type, ...) case name: return b3type;
 inline B3::Type toB3Type(Type type)
 {
@@ -224,6 +225,7 @@ inline B3::Type toB3Type(Type type)
     return B3::Void;
 }
 #undef CREATE_CASE
+#endif
 
 #define CREATE_CASE(name, ...) case name: return #name;
 inline const char* makeString(Type type)

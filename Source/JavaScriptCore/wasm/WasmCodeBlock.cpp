@@ -57,9 +57,11 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
                 return;
             }
 
+#if ENABLE(WEBASSEMBLY_B3JIT)
             // FIXME: we should eventually collect the BBQ code.
             m_bbqCallees.resize(m_calleeCount);
             m_omgCallees.resize(m_calleeCount);
+#endif
             m_wasmIndirectCallEntryPoints.resize(m_calleeCount);
 
             for (unsigned i = 0; i < m_calleeCount; ++i)
@@ -72,6 +74,7 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
             setCompilationFinished();
         })));
     } else {
+#if ENABLE(WEBASSEMBLY_B3JIT)
         m_plan = adoptRef(*new BBQPlan(context, makeRef(moduleInformation), EntryPlan::FullCompile, createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (Plan&) {
             auto locker = holdLock(m_lock);
             if (m_plan->failed()) {
@@ -100,6 +103,7 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
 
             setCompilationFinished();
         })));
+#endif
     }
     m_plan->setMode(mode);
 

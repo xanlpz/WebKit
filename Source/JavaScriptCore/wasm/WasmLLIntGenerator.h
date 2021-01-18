@@ -28,6 +28,9 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "WasmB3IRGenerator.h"
+#include "WasmModuleInformation.h"
+#include "WasmSignature.h"
+#include <wtf/Expected.h>
 
 namespace JSC { namespace Wasm {
 

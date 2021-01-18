@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WasmOMGForOSREntryPlan.h"
 
-#if ENABLE(WEBASSEMBLY)
+#if ENABLE(WEBASSEMBLY) && ENABLE(WEBASSEMBLY_B3JIT)
 
 #include "JITCompilation.h"
 #include "LinkBuffer.h"

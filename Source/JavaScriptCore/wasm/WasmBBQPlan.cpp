@@ -26,7 +26,7 @@
 #include "config.h"
 #include "WasmBBQPlan.h"
 
-#if ENABLE(WEBASSEMBLY)
+#if ENABLE(WEBASSEMBLY) && ENABLE(WEBASSEMBLY_B3JIT)
 
 #include "JITCompilation.h"
 #include "JSToWasm.h"
