@@ -76,7 +76,7 @@ static MacroAssemblerCodeRef<tag> generateThunkWithJumpTo(LLIntCode target, cons
 
     assertIsTaggedWith<OperationPtrTag>(target);
 
-#if ENABLE(WEBASSEMBLY)
+#if ENABLE(WEBASSEMBLY) && ENABLE(WEBASSEMBLY_B3JIT)
     CCallHelpers::RegisterID scratch = Wasm::wasmCallingConvention().prologueScratchGPRs[0];
 #else
     CCallHelpers::RegisterID scratch = JSInterfaceJIT::regT0;
@@ -102,7 +102,7 @@ static MacroAssemblerCodeRef<tag> generateThunkWithJumpToPrologue(OpcodeID opcod
     LLIntCode target = LLInt::getCodeFunctionPtr<OperationPtrTag>(opcodeID);
     assertIsTaggedWith<OperationPtrTag>(target);
 
-#if ENABLE(WEBASSEMBLY)
+#if ENABLE(WEBASSEMBLY) && ENABLE(WEBASSEMBLY_B3JIT)
     CCallHelpers::RegisterID scratch = Wasm::wasmCallingConvention().prologueScratchGPRs[0];
 #else
     CCallHelpers::RegisterID scratch = JSInterfaceJIT::regT0;
