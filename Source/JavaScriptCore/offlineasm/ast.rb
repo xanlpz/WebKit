@@ -955,7 +955,7 @@ class Instruction < Node
             $asm.puts "#{str}"
         when "tagCodePtr", "tagReturnAddress", "untagReturnAddress", "removeCodePtrTag", "untagArrayPtr", "removeArrayPtrTag"
         else
-            raise "Unhandled opcode #{opcode} at #{codeOriginString}"
+            $stderr.print "Unhandled opcode #{opcode} at #{codeOriginString}\n"
         end
     end
 

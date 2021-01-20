@@ -198,6 +198,8 @@ set(LLINT_ASM
     llint/LowLevelInterpreter32_64.asm
     llint/LowLevelInterpreter64.asm
     llint/WebAssembly.asm
+    llint/WebAssembly32_64.asm
+    llint/WebAssembly64.asm
 )
 
 set(OFFLINE_ASM
