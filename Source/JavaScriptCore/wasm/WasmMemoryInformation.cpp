@@ -41,8 +41,15 @@ const PinnedRegisterInfo& PinnedRegisterInfo::get()
         unsigned numberOfPinnedRegisters = 2;
         if (!Context::useFastTLS())
             ++numberOfPinnedRegisters;
+#if CPU(X86_64) || CPU(ARM64)
         GPRReg baseMemoryPointer = GPRInfo::regCS3;
         GPRReg boundsCheckingSizeRegister = GPRInfo::regCS4;
+#elif CPU(ARM)
+//        GPRReg baseMemoryPointer = GPRInfo::regT4; // FIXME: see WebAssembly.asm, can't use csr1 because it's saved for PB.
+//        GPRReg boundsCheckingSizeRegister = GPRInfo::regT5; // FIXME: This is a callee-saved register, so it might work.
+        GPRReg baseMemoryPointer = GPRInfo::regCS1;
+        GPRReg boundsCheckingSizeRegister = GPRInfo::regCS1;
+#endif
         GPRReg wasmContextInstancePointer = InvalidGPRReg;
         if (!Context::useFastTLS())
             wasmContextInstancePointer = GPRInfo::regCS0;

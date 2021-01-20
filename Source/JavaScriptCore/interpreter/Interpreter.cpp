@@ -649,7 +649,7 @@ private:
             if (dontCopyRegisters.get(currentEntry.reg()))
                 continue;
             RegisterAtOffset* calleeSavesEntry = allCalleeSaves->find(currentEntry.reg());
-            
+            ASSERT(calleeSavesEntry);
             record->calleeSaveRegistersBuffer[calleeSavesEntry->offsetAsIndex()] = *(frame + currentEntry.offsetAsIndex());
         }
 #else

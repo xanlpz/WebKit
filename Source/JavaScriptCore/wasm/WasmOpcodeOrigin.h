@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(WEBASSEMBLY)
+#if ENABLE(WEBASSEMBLY_B3JIT)
 
 #include "B3Origin.h"
 #include "WasmFormat.h"
@@ -54,10 +54,12 @@ public:
     size_t location() const { return static_cast<uint32_t>(packedData); }
 
 private:
+#if USE(JSVALUE64) //FIXME: for 32bit, although this only seems to be used in the B3/Air generator.
     static_assert(sizeof(void*) == sizeof(uint64_t), "this packing doesn't work if this isn't the case");
+#endif
     uint64_t packedData { 0 };
 };
 
 } } // namespace JSC::Wasm
 
-#endif // ENABLE(WEBASSEMBLY)
+#endif // ENABLE(WEBASSEMBLY_B3JIT)
