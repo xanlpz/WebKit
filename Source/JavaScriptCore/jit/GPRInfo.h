@@ -166,10 +166,18 @@ private:
 #if USE(JSVALUE32_64)
 class JSValueRegs {
 public:
-    JSValueRegs()
+    constexpr JSValueRegs()
         : m_tagGPR(InvalidGPRReg)
         , m_payloadGPR(InvalidGPRReg)
     {
+    }
+
+    //FIXME: 32bit hack
+    constexpr explicit JSValueRegs(GPRReg tagGPR)
+        : m_tagGPR(tagGPR)
+        , m_payloadGPR(InvalidGPRReg)
+    {
+        CRASH();
     }
     
     constexpr JSValueRegs(GPRReg tagGPR, GPRReg payloadGPR)

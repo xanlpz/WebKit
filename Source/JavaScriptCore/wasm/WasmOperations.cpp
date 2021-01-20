@@ -504,7 +504,7 @@ JSC_DEFINE_JIT_OPERATION(operationConvertToF32, float, (CallFrame* callFrame, JS
     return static_cast<float>(v.toNumber(callFrame->lexicalGlobalObject(vm)));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationConvertToBigInt, EncodedJSValue, (CallFrame* callFrame, Instance* instance, int64_t value))
+JSC_DEFINE_JIT_OPERATION(operationConvertToBigInt, EncodedJSValue, (CallFrame* callFrame, Instance* instance, EncodedWasmValue value))
 {
     JSWebAssemblyInstance* jsInstance = instance->owner<JSWebAssemblyInstance>();
     JSGlobalObject* globalObject = jsInstance->globalObject();
@@ -579,7 +579,7 @@ JSC_DEFINE_JIT_OPERATION(operationIterateResults, void, (CallFrame* callFrame, I
 
         auto rep = wasmCallInfo.results[index];
         if (rep.isReg())
-            registerResults[registerResultOffsets.find(rep.reg())->offset() / sizeof(uint64_t)] = unboxedValue;
+            registerResults[registerResultOffsets.find(rep.reg().reg())->offset() / sizeof(uint64_t)] = unboxedValue;
         else
             calleeFramePointer[rep.offsetFromFP() / sizeof(uint64_t)] = unboxedValue;
     }
@@ -604,12 +604,14 @@ JSC_DEFINE_JIT_OPERATION(operationAllocateResultsArray, JSArray*, (CallFrame* ca
     auto wasmCallInfo = wasmCallingConvention().callInformationFor(*signature);
     RegisterAtOffsetList registerResults = wasmCallInfo.computeResultsOffsetList();
 
+#if USE(JSVALUE64) //FIXME: for 32bit
     static_assert(sizeof(JSValue) == sizeof(CPURegister), "The code below relies on this.");
+#endif
     for (unsigned i = 0; i < signature->returnCount(); ++i) {
         ValueLocation loc = wasmCallInfo.results[i];
         JSValue value;
         if (loc.isReg())
-            value = stackPointerFromCallee[(registerResults.find(loc.reg())->offset() + wasmCallInfo.headerAndArgumentStackSizeInBytes) / sizeof(JSValue)];
+            value = stackPointerFromCallee[(registerResults.find(loc.reg().reg())->offset() + wasmCallInfo.headerAndArgumentStackSizeInBytes) / sizeof(JSValue)];
         else
             value = stackPointerFromCallee[loc.offsetFromSP() / sizeof(JSValue)];
         result->initializeIndex(initializationScope, i, value);
@@ -944,7 +946,9 @@ JSC_DEFINE_JIT_OPERATION(operationWasmThrow, void*, (Instance* instance, CallFra
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
+#if USE(JSVALUE64)
     bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
+#endif
     return vm.targetMachinePCForThrow;
 }
 
@@ -970,7 +974,9 @@ JSC_DEFINE_JIT_OPERATION(operationWasmRethrow, void*, (Instance* instance, CallF
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
+#if USE(JSVALUE64)    
     bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
+#endif
     return vm.targetMachinePCForThrow;
 }
 
@@ -1005,7 +1011,9 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSException, void*, (CallFrame* callFram
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
-    bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(instance->module());
+#if USE(JSVALUE64)
+    bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
+#endif
     return vm.targetMachinePCForThrow;
 }
 
@@ -1029,7 +1037,11 @@ JSC_DEFINE_JIT_OPERATION(operationWasmRetrieveAndClearExceptionIfCatchable, Poin
     void* payload = nullptr;
     if (JSWebAssemblyException* wasmException = jsDynamicCast<JSWebAssemblyException*>(vm, thrownValue))
         payload = bitwise_cast<void*>(wasmException->payload().data());
+#if USE(JSVALUE64) //FIXME
     return PointerPair { bitwise_cast<void*>(JSValue::encode(thrownValue)), payload };
+#else
+    return PointerPair { nullptr, payload };
+#endif
 }
 
 } } // namespace JSC::Wasm
