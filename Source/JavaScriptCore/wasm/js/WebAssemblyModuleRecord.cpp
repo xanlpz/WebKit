@@ -554,7 +554,8 @@ void WebAssemblyModuleRecord::initializeExports(JSGlobalObject* globalObject)
                 JSWebAssemblyGlobal* globalValue = JSWebAssemblyGlobal::tryCreate(globalObject, vm, globalObject->webAssemblyGlobalStructure(), WTFMove(globalRef));
                 scope.assertNoException();
                 m_instance->linkGlobal(vm, globalIndex, globalValue);
-                ensureStillAliveHere(bitwise_cast<void*>(initialBits)); // Ensure this is kept alive while creating JSWebAssemblyGlobal.
+                //FIXME: this was previously cast to (void*), but it's a uint_64t, which ensureStillAliveHere() accepts.
+                ensureStillAliveHere(initialBits); // Ensure this is kept alive while creating JSWebAssemblyGlobal.
                 break;
             }
             }

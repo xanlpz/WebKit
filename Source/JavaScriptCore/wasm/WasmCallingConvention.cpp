@@ -60,6 +60,7 @@ const WasmCallingConvention& wasmCallingConvention()
             fprArgumentRegisters[i] = FPRInfo::toArgumentRegister(i);
 
         RegisterSet scratch = RegisterSet::allGPRs();
+        // FIXME: is this ok?
         scratch.exclude(RegisterSet::calleeSaveRegisters());
         scratch.exclude(RegisterSet::macroScratchRegisters());
         scratch.exclude(RegisterSet::reservedHardwareRegisters());
@@ -70,7 +71,7 @@ const WasmCallingConvention& wasmCallingConvention()
         Vector<GPRReg> scratchGPRs;
         for (Reg reg : scratch)
             scratchGPRs.append(reg.gpr());
-        RELEASE_ASSERT(scratchGPRs.size() >= 2);
+        //RELEASE_ASSERT(scratchGPRs.size() >= 2);
 
         RegisterSet callerSaveRegisters = RegisterSet::allRegisters();
         callerSaveRegisters.exclude(RegisterSet::calleeSaveRegisters());
