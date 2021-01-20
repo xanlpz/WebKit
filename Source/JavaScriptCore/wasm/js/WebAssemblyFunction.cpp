@@ -203,6 +203,11 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
     if (wasmCallInfo.argumentsIncludeI64)
         return nullptr;
 
+//FIXME: not enough scratch registers to optimize this on 32-bit.
+#if USE(JSVALUE32_64)
+    return nullptr;
+#endif
+
     totalFrameSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), totalFrameSize);
 
     jit.emitFunctionPrologue();
@@ -245,12 +250,16 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         auto type = signature.argument(i);
         switch (type.kind) {
         case Wasm::TypeKind::I32: {
+#if USE(JSVALUE64)
             jit.load64(jsParam, scratchGPR);
+#else
+            jit.load32(jsParam, scratchGPR);
+#endif
             slowPath.append(jit.branchIfNotInt32(scratchGPR));
             if (isStack)
                 jit.store32(scratchGPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
             else
-                jit.zeroExtend32ToWord(scratchGPR, wasmCallInfo.params[i].gpr());
+                jit.zeroExtend32ToWord(scratchGPR, wasmCallInfo.params[i].reg().gpr());
             break;
         }
         case Wasm::TypeKind::Ref:
@@ -259,7 +268,11 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         case Wasm::TypeKind::Externref: {
             if (!Wasm::isExternref(type)) {
                 // Ensure we have a WASM exported function.
+#if USE(JSVALUE64)
                 jit.load64(jsParam, scratchGPR);
+#else
+                jit.load32(jsParam, scratchGPR);
+#endif
                 auto isNull = jit.branchIfNull(scratchGPR);
                 if (!type.isNullable())
                     slowPath.append(isNull);
@@ -277,7 +290,11 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
 
                 isWasmFunction.link(&jit);
                 if (Wasm::isRefWithTypeIndex(type)) {
+#if USE(JSVALUE64)
                     jit.load64(jsParam, scratchGPR);
+#else
+                    jit.load32(jsParam, scratchGPR); // FIXME: right?
+#endif
                     jit.loadPtr(CCallHelpers::Address(scratchGPR, WebAssemblyFunctionBase::offsetOfSignatureIndex()), scratchGPR);
                     slowPath.append(jit.branchPtr(CCallHelpers::NotEqual, scratchGPR, CCallHelpers::TrustedImmPtr(type.index)));
                 }
@@ -287,13 +304,25 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
             }
 
             if (isStack) {
+                //FIXME: 32-bit
+#if USE(JSVALUE64)
                 jit.load64(jsParam, scratchGPR);
                 if (!type.isNullable())
                     slowPath.append(jit.branchIfNull(scratchGPR));
                 jit.store64(scratchGPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
+#else
+                jit.load32(jsParam, scratchGPR);
+                if (!type.isNullable())
+                    slowPath.append(jit.branchIfNull(scratchGPR));
+                jit.store32(scratchGPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
+#endif
             } else {
                 auto externGPR = wasmCallInfo.params[i].gpr();
+#if USE(JSVALUE64)
                 jit.load64(jsParam, externGPR);
+#else
+                jit.load32(jsParam, externGPR);
+#endif
                 if (!type.isNullable())
                     slowPath.append(jit.branchIfNull(externGPR));
             }
@@ -302,7 +331,7 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         case Wasm::TypeKind::F32:
         case Wasm::TypeKind::F64: {
             if (!isStack)
-                scratchFPR = wasmCallInfo.params[i].fpr();
+                scratchFPR = wasmCallInfo.params[i].reg().fpr();
             auto moveToDestination = [&] () {
                 if (isStack) {
                     if (signature.argument(i).isF32())
@@ -311,25 +340,35 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
                         jit.storeDouble(scratchFPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
                 }
             };
-
+#if USE(JSVALUE64)
             jit.load64(jsParam, scratchGPR);
             slowPath.append(jit.branchIfNotNumber(scratchGPR));
+#else
+            jit.load32(jsParam, scratchGPR);
+            // FIXME: this is not right, what to use in JSValueRegs.
+            slowPath.append(jit.branchIfNotNumber(JSValueRegs() , scratchGPR));
+#endif
+
             auto isInt32 = jit.branchIfInt32(scratchGPR);
 
+#if USE(JSVALUE64) //FIXME: for 32bit
             jit.unboxDouble(scratchGPR, scratchGPR, scratchFPR);
-            if (signature.argument(i).isF32())
+#endif
+            if (signature.argument(i).isF32())                
                 jit.convertDoubleToFloat(scratchFPR, scratchFPR);
             moveToDestination();
             auto done = jit.jump();
 
             isInt32.link(&jit);
-            if (signature.argument(i).isF32()) {
+#if USE(JSVALUE64) //FIXME: for 32bit
+            if (signature.argument(i).isF32()) {                
                 jit.convertInt32ToFloat(scratchGPR, scratchFPR);
                 moveToDestination();
             } else {
                 jit.convertInt32ToDouble(scratchGPR, scratchFPR);
                 moveToDestination();
             }
+#endif
             done.link(&jit);
 
             break;
@@ -359,6 +398,7 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         jit.loadPtr(vm.addressOfSoftStackLimit(), stackLimitGPR);
     jit.storePtr(stackLimitGPR, CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedStackLimit()));
 
+#if GIGACAGE_ENABLED
     if (!!moduleInformation.memory) {
         GPRReg baseMemory = pinnedRegs.baseMemoryPointer;
         GPRReg scratchOrBoundsCheckingSize = InvalidGPRReg;
@@ -378,6 +418,7 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         jit.loadPtr(CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedMemory()), baseMemory);
         jit.cageConditionallyAndUntag(Gigacage::Primitive, baseMemory, scratchOrBoundsCheckingSize, scratchGPR);
     }
+#endif
 
     // We use this callee to indicate how to unwind past these types of frames:
     // 1. We need to know where to get callee saves.

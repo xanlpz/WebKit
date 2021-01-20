@@ -120,6 +120,13 @@ public:
         else
             load64(src, dst.gpr());
     }
+#else
+    // FIXME: might want to do something similar to what we do for JSValues, this is only used in wasm.
+    void load64ToPairRegs(Address src, Reg hi, Reg lo)
+    {
+        ASSERT(hi.isGPR() && lo.isGPR());
+        loadPair32(src, hi.gpr(), lo.gpr());
+    }
 #endif
     
     void load32ToReg(Address src, Reg dst)
