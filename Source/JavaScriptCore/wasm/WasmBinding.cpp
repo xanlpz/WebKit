@@ -29,6 +29,7 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "CCallHelpers.h"
+#include "DisallowMacroScratchRegisterUsage.h"
 #include "LinkBuffer.h"
 #include "WasmCallingConvention.h"
 #include "WasmInstance.h"
@@ -45,14 +46,21 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToWasm(unsi
     const PinnedRegisterInfo& pinnedRegs = PinnedRegisterInfo::get();
     JIT jit;
 
+#if !CPU(ARM)
     GPRReg scratch = wasmCallingConvention().prologueScratchGPRs[0];
     GPRReg baseMemory = pinnedRegs.baseMemoryPointer;
-    ASSERT(baseMemory != GPRReg::InvalidGPRReg);
-    ASSERT(baseMemory != scratch);
-    ASSERT(pinnedRegs.boundsCheckingSizeRegister != baseMemory);
-    ASSERT(pinnedRegs.boundsCheckingSizeRegister != scratch);
     GPRReg sizeRegAsScratch = pinnedRegs.boundsCheckingSizeRegister;
+#else
+    DisallowMacroScratchRegisterUsage disallowScratch(jit);
+    GPRReg scratch = jit.scratchRegister();
+    GPRReg baseMemory = GPRInfo::regT0;
+    GPRReg sizeRegAsScratch = GPRInfo::regT1;
+    jit.pushPair(baseMemory, sizeRegAsScratch);
+#endif
+    ASSERT(baseMemory != GPRReg::InvalidGPRReg);
     ASSERT(sizeRegAsScratch != GPRReg::InvalidGPRReg);
+    ASSERT(scratch != GPRReg::InvalidGPRReg);
+    ASSERT(JIT::noOverlap(scratch, baseMemory, sizeRegAsScratch));
 
     // B3's call codegen ensures that the JSCell is a WebAssemblyFunction.
     jit.loadWasmContextInstance(sizeRegAsScratch); // Old Instance*
@@ -65,6 +73,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToWasm(unsi
     jit.loadPtr(JIT::Address(sizeRegAsScratch, Instance::offsetOfCachedStackLimit()), sizeRegAsScratch);
     jit.storePtr(sizeRegAsScratch, JIT::Address(baseMemory, Instance::offsetOfCachedStackLimit()));
 
+#if !CPU(ARM) // ARM has no pinned registers for Wasm Memory, so no need to set them up ...
     // FIXME the following code assumes that all Wasm::Instance have the same pinned registers. https://bugs.webkit.org/show_bug.cgi?id=162952
     // Set up the callee's baseMemory register as well as the memory size registers.
     {
@@ -72,6 +81,9 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToWasm(unsi
         jit.loadPtr(JIT::Address(baseMemory, Wasm::Instance::offsetOfCachedMemory()), baseMemory); // Wasm::Memory::TaggedArrayStoragePtr<void> (void*).
         jit.cageConditionallyAndUntag(Gigacage::Primitive, baseMemory, pinnedRegs.boundsCheckingSizeRegister, wasmCallingConvention().prologueScratchGPRs[1]);
     }
+#else // ... but we need to restore the scratch registers
+    jit.popPair(baseMemory, sizeRegAsScratch);
+#endif
 
     // Tail call into the callee WebAssembly function.
     jit.loadPtr(JIT::Address(scratch), scratch);
