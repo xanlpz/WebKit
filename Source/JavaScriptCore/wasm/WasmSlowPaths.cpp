@@ -642,7 +642,9 @@ WASM_SLOW_PATH_DECL(throw)
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
+#if USE(JSVALUE64) //FIXME
     bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
+#endif
     WASM_RETURN_TWO(vm.targetMachinePCForThrow, nullptr);
 }
 
@@ -670,7 +672,9 @@ WASM_SLOW_PATH_DECL(rethrow)
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
+#if USE(JSVALUE64) //FIXME
     bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
+#endif
     WASM_RETURN_TWO(vm.targetMachinePCForThrow, nullptr);
 }
 
@@ -725,13 +729,13 @@ extern "C" SlowPathReturnType slow_path_wasm_throw_exception(CallFrame* callFram
 
 extern "C" SlowPathReturnType slow_path_wasm_popcount(const Instruction* pc, uint32_t x)
 {
-    void* result = bitwise_cast<void*>(static_cast<uint64_t>(__builtin_popcount(x)));
+    void* result = bitwise_cast<void*>(static_cast<size_t>(__builtin_popcount(x)));
     WASM_RETURN_TWO(pc, result);
 }
 
 extern "C" SlowPathReturnType slow_path_wasm_popcountll(const Instruction* pc, uint64_t x)
 {
-    void* result = bitwise_cast<void*>(static_cast<uint64_t>(__builtin_popcountll(x)));
+    void* result = bitwise_cast<void*>(static_cast<size_t>(__builtin_popcountll(x)));
     WASM_RETURN_TWO(pc, result);
 }
 
