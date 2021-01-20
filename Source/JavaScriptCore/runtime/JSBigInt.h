@@ -37,6 +37,10 @@
 #include <wtf/text/StringView.h>
 #include <wtf/text/WTFString.h>
 
+#if ENABLE(WEBASSEMBLY)
+typedef int64_t EncodedWasmValue;
+#endif
+
 namespace JSC {
 
 class Int32BigIntImpl;
@@ -119,6 +123,14 @@ public:
         return JSBigInt::createFrom(globalObject, value);
     }
 
+    /*
+    FIXME: does this need to exist?
+    static JSValue makeHeapBigIntOrBigInt32(JSGlobalObject* globalObject, EncodedWasmValue value)
+    {
+        return JSBigInt::createFrom(globalObject, static_cast<int64_t>(value));
+    }
+    */
+    
     enum class ErrorParseMode {
         ThrowExceptions,
         IgnoreExceptions

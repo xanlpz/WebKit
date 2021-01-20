@@ -160,7 +160,9 @@ JSC_DEFINE_HOST_FUNCTION(constructJSWebAssemblyGlobal, (JSGlobalObject* globalOb
     Ref<Wasm::Global> wasmGlobal = Wasm::Global::create(type, mutability, initialValue);
     JSWebAssemblyGlobal* jsWebAssemblyGlobal = JSWebAssemblyGlobal::tryCreate(globalObject, vm, webAssemblyGlobalStructure, WTFMove(wasmGlobal));
     RETURN_IF_EXCEPTION(throwScope, { });
-    ensureStillAliveHere(bitwise_cast<void*>(initialValue)); // Ensure this is kept alive while creating JSWebAssemblyGlobal.
+    //FIXME: this assumes pointers are 64bit
+    //ensureStillAliveHere(bitwise_cast<void*>(initialValue)); // Ensure this is kept alive while creating JSWebAssemblyGlobal.
+    ensureStillAliveHere((void*)(initialValue)); // Ensure this is kept alive while creating JSWebAssemblyGlobal.
     return JSValue::encode(jsWebAssemblyGlobal);
 }
 

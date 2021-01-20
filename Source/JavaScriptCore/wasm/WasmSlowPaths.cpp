@@ -594,13 +594,17 @@ extern "C" SlowPathReturnType slow_path_wasm_throw_exception(CallFrame* callFram
 
 extern "C" SlowPathReturnType slow_path_wasm_popcount(const Instruction* pc, uint32_t x)
 {
-    void* result = bitwise_cast<void*>(static_cast<uint64_t>(__builtin_popcount(x)));
+    //FIXME: this assumes pointers are 64bit
+    //void* result = bitwise_cast<void*>(static_cast<uint64_t>(__builtin_popcount(x)));
+    void* result = (void*)(static_cast<uint64_t>(__builtin_popcount(x)));
     WASM_RETURN_TWO(pc, result);
 }
 
 extern "C" SlowPathReturnType slow_path_wasm_popcountll(const Instruction* pc, uint64_t x)
 {
-    void* result = bitwise_cast<void*>(static_cast<uint64_t>(__builtin_popcountll(x)));
+    //FIXME: this assumes pointers are 64bit
+    //void* result = bitwise_cast<void*>(static_cast<uint64_t>(__builtin_popcount(x)));
+    void* result = (void*)(static_cast<uint64_t>(__builtin_popcountll(x)));
     WASM_RETURN_TWO(pc, result);
 }
 

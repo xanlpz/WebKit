@@ -121,6 +121,8 @@ void LLIntPlan::didCompleteCompilation()
             CCallHelpers::Address calleeSlot(CCallHelpers::stackPointerRegister, CallFrameSlot::callee * static_cast<int>(sizeof(Register)) - sizeof(CPURegister));
 #elif CPU(ARM64)
             CCallHelpers::Address calleeSlot(CCallHelpers::stackPointerRegister, CallFrameSlot::callee * static_cast<int>(sizeof(Register)) - sizeof(CallerFrameAndPC));
+#elif CPU(ARM) //FIXME: I think this is right, but double check.
+            CCallHelpers::Address calleeSlot(CCallHelpers::stackPointerRegister, CallFrameSlot::callee * static_cast<int>(sizeof(Register)) - sizeof(CallerFrameAndPC));
 #else
 #error Unsupported architecture.
 #endif

@@ -687,6 +687,7 @@ auto LLIntGenerator::callInformationForCallee(const Signature& signature) -> Vec
     const uint32_t maxGPRIndex = gprCount;
     const uint32_t maxFPRIndex = maxGPRIndex + fprCount;
 
+    // FIXME: this is wrong for 64bit values in 32bit archs.
     for (uint32_t i = 0; i < signature.returnCount(); i++) {
         switch (signature.returnType(i).kind) {
         case TypeKind::I32:

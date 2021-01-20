@@ -32,10 +32,71 @@
 #include "GPRInfo.h"
 #include "Reg.h"
 #include <wtf/PrintStream.h>
+#include "WasmOps.h"
 
 namespace JSC {
 
 namespace Wasm {
+
+#if USE(JSVALUE64)
+class ValueRegisters {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    ValueRegisters()
+        : m_reg(InvalidGPRReg)
+    {
+    }
+
+    ValueRegisters(Reg reg)
+        : m_reg(reg)
+    {
+    }
+
+    Reg reg() const { return m_reg; }
+    GPRReg gpr() const { return m_reg.gpr(); }
+    FPRReg fpr() const { return m_reg.fpr(); }
+
+private:
+    Reg m_reg;
+};
+#elif USE(JSVALUE32_64)
+class ValueRegisters {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    ValueRegisters()
+        : m_hi(InvalidGPRReg)
+        , m_lo(InvalidGPRReg)
+        , m_kind(TypeKind::Void)
+    {
+    }
+
+    ValueRegisters(Reg hi, Reg lo)
+        : m_hi(hi)
+        , m_lo(lo)
+        , m_kind(TypeKind::I64)
+    {
+    }
+
+    ValueRegisters(Reg gpr)
+        : m_hi(gpr)
+        , m_lo(InvalidGPRReg)
+        , m_kind(TypeKind::I32)
+    {
+    }
+
+    // FIXME: this can probably be optimized to only have one register when needed.
+    Reg reg() const { ASSERT(m_kind == TypeKind::I32); return m_hi; }
+    GPRReg gpr() const { ASSERT(m_kind == TypeKind::I32); return m_hi.gpr(); }
+    FPRReg fpr() const { /*ASSERT(m_kind == TypeKind::F32 || m_kind == TypeKind::F64);*/ return m_hi.fpr(); } //FIXME: we only use m_hi?
+    Reg hi() const { ASSERT(m_kind == TypeKind::I64); return m_hi; }
+    Reg lo() const { ASSERT(m_kind == TypeKind::I64); return m_lo; }
+
+private:
+    Reg m_hi;
+    Reg m_lo;
+    TypeKind m_kind;
+};
+#endif
 
 class ValueLocation {
     WTF_MAKE_FAST_ALLOCATED;
@@ -51,15 +112,34 @@ public:
     {
     }
 
-    explicit ValueLocation(Reg reg)
+    explicit ValueLocation(ValueRegisters reg)
         : m_kind(Register)
     {
         u.reg = reg;
     }
 
+    explicit ValueLocation(Reg reg)
+        : m_kind(Register)
+    {
+        u.reg = ValueRegisters(reg);
+    }
+
+#if USE(JSVALUE32_64)
+    explicit ValueLocation(Reg hi, Reg lo)
+        : m_kind(Register)
+    {
+        u.reg = ValueRegisters(hi, lo);
+    }
+#endif
+
     ValueLocation(const ValueLocation&) = default;
 
     static ValueLocation reg(Reg reg)
+    {
+        return ValueLocation(ValueRegisters(reg));
+    }
+    
+    static ValueLocation reg(ValueRegisters reg)
     {
         return ValueLocation(reg);
     }
@@ -84,14 +164,11 @@ public:
 
     bool isReg() const { return kind() == Register; }
 
-    Reg reg() const
+    ValueRegisters reg() const
     {
         ASSERT(isReg());
         return u.reg;
     }
-
-    bool isGPR() const { return isReg() && reg().isGPR(); }
-    bool isFPR() const { return isReg() && reg().isFPR(); }
 
     GPRReg gpr() const { return reg().gpr(); }
     FPRReg fpr() const { return reg().fpr(); }
@@ -116,7 +193,7 @@ public:
 
 private:
     union U {
-        Reg reg;
+        ValueRegisters reg;
         intptr_t offsetFromFP;
         intptr_t offsetFromSP;
 

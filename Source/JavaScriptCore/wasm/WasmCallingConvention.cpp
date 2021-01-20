@@ -70,7 +70,9 @@ const WasmCallingConvention& wasmCallingConvention()
         Vector<GPRReg> scratchGPRs;
         for (Reg reg : scratch)
             scratchGPRs.append(reg.gpr());
+#ifndef CPU(ARM) // FIXME: this won't really work, figure it out later.
         RELEASE_ASSERT(scratchGPRs.size() >= 2);
+#endif
 
         RegisterSet callerSaveRegisters = RegisterSet::allRegisters();
         callerSaveRegisters.exclude(RegisterSet::calleeSaveRegisters());

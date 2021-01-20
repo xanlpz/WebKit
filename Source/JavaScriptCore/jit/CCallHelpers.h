@@ -34,6 +34,10 @@
 #include <wtf/FunctionTraits.h>
 #include <wtf/ScopedLambda.h>
 
+#if ENABLE(WEBASSEMBLY)
+#include "WasmValueLocation.h"
+#endif
+
 namespace JSC {
 
 #if CPU(MIPS) || (OS(WINDOWS) && CPU(X86_64))
@@ -495,6 +499,30 @@ private:
             pokeForArgument(arg, numGPRArgs, numFPRArgs, numCrossSources, extraGPRArgs, nonArgGPRs, extraPoke + 1);
             setupArgumentsImpl<OperationType>(argSourceRegs.addStackArg(arg).addPoke().addPoke(), args...);
         }
+    }
+
+    template<typename OperationType, unsigned numGPRArgs, unsigned numGPRSources, unsigned numFPRArgs, unsigned numFPRSources, unsigned numCrossSources, unsigned extraGPRArgs, unsigned nonArgGPRs, unsigned extraPoke, typename... Args>
+    std::enable_if_t<std::is_same<CURRENT_ARGUMENT_TYPE, int64_t>::value>
+    setupArgumentsImpl(ArgCollection<numGPRArgs, numGPRSources, numFPRArgs, numFPRSources, numCrossSources, extraGPRArgs, nonArgGPRs, extraPoke> argSourceRegs, Wasm::ValueRegisters arg, Args... args)
+    {
+        static_assert(std::is_same<CURRENT_ARGUMENT_TYPE, int64_t>::value, "So far this is used in the int64_t -> BigInt conversion");
+
+        unsigned numArgRegisters = GPRInfo::numberOfArgumentRegisters;
+        unsigned currentArgCount = argSourceRegs.argCount(arg.lo().gpr());
+        unsigned alignedArgCount = roundUpToMultipleOf<2>(currentArgCount);
+
+        if (alignedArgCount + 1 < numArgRegisters) {
+            // An int64_t is passed in two 32-bit registers on these architectures. Increase both numGPRArgs and extraGPRArgs by 1.
+            // We can't just add 2 to numGPRArgs, since it is used for CURRENT_ARGUMENT_TYPE. Adding 2 would lead to a skipped argument.
+            auto updatedArgSourceRegs1 = argSourceRegs.pushRegArg(arg.hi().gpr(), GPRInfo::toArgumentRegister(alignedArgCount));
+            auto updatedArgSourceRegs2 = updatedArgSourceRegs1.pushExtraRegArg(arg.lo().gpr(), GPRInfo::toArgumentRegister(alignedArgCount + 1));
+
+            if (alignedArgCount > currentArgCount)
+                setupArgumentsImpl<OperationType>(updatedArgSourceRegs2.addGPRExtraArg(), args...);
+            else
+                setupArgumentsImpl<OperationType>(updatedArgSourceRegs2, args...);
+        } else
+            pokeArgumentsAligned<OperationType>(argSourceRegs, arg.hi().gpr(), arg.lo().gpr(), args...);
     }
 
     template<typename OperationType, unsigned numGPRArgs, unsigned numGPRSources, unsigned numFPRArgs, unsigned numFPRSources, unsigned numCrossSources, unsigned extraGPRArgs, unsigned nonArgGPRs, unsigned extraPoke, typename... Args>

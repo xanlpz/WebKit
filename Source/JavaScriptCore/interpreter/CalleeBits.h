@@ -51,18 +51,28 @@ public:
 #if ENABLE(WEBASSEMBLY)
     static void* boxWasm(Wasm::Callee* callee)
     {
+#if USE(JSVALUE64)
         CalleeBits result(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(callee) | JSValue::WasmTag));
         ASSERT(result.isWasm());
         return result.rawPtr();
+#elif USE(JSVALUE32_64)
+        CalleeBits result(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(callee))); // FIXME: need to figure out tagging!?
+        ASSERT(!result.isWasm());
+        return result.rawPtr();
+#endif
     }
 #endif
 
     bool isWasm() const
     {
 #if ENABLE(WEBASSEMBLY)
+#if USE(JSVALUE64)
         return (reinterpret_cast<uintptr_t>(m_ptr) & JSValue::WasmMask) == JSValue::WasmTag;
+#elif USE(JSVALUE32_64)
+        return false;
 #else
         return false;
+#endif
 #endif
     }
     bool isCell() const { return !isWasm(); }
@@ -76,8 +86,13 @@ public:
 #if ENABLE(WEBASSEMBLY)
     Wasm::Callee* asWasmCallee() const
     {
-        ASSERT(isWasm());
+        CRASH();
+        ASSERT(!isWasm());
+#if USE(JSVALUE64)
         return reinterpret_cast<Wasm::Callee*>(reinterpret_cast<uintptr_t>(m_ptr) & ~JSValue::WasmTag);
+#elif USE(JSVALUE32_64)
+        return reinterpret_cast<Wasm::Callee*>(reinterpret_cast<uintptr_t>(m_ptr));
+#endif
     }
 #endif
 

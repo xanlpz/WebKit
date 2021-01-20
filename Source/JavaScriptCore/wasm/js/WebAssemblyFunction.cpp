@@ -286,18 +286,26 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         auto type = signature.argument(i);
         switch (type.kind) {
         case Wasm::TypeKind::I32: {
+#if USE(JSVALUE64)
             jit.load64(jsParam, scratchGPR);
+#else
+            jit.load32(jsParam, scratchGPR);
+#endif
             slowPath.append(jit.branchIfNotInt32(scratchGPR));
             if (isStack)
                 jit.store32(scratchGPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
             else
-                jit.zeroExtend32ToWord(scratchGPR, wasmCallInfo.params[i].gpr());
+                jit.zeroExtend32ToWord(scratchGPR, wasmCallInfo.params[i].reg().gpr());
             break;
         }
         case Wasm::TypeKind::TypeIdx:
         case Wasm::TypeKind::Funcref: {
             // Ensure we have a WASM exported function.
+#if USE(JSVALUE64)
             jit.load64(jsParam, scratchGPR);
+#else
+            jit.load32(jsParam, scratchGPR);
+#endif
             auto isNull = jit.branchIfNull(scratchGPR);
             if (!type.isNullable())
                 slowPath.append(isNull);
@@ -315,7 +323,11 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
 
             isWasmFunction.link(&jit);
             if (type.kind == Wasm::TypeKind::TypeIdx) {
+#if USE(JSVALUE64)
                 jit.load64(jsParam, scratchGPR);
+#else
+                // FIXME
+#endif
                 jit.loadPtr(CCallHelpers::Address(scratchGPR, WebAssemblyFunctionBase::offsetOfSignatureIndex()), scratchGPR);
                 slowPath.append(jit.branchPtr(CCallHelpers::NotEqual, scratchGPR, CCallHelpers::TrustedImmPtr(type.index)));
             }
@@ -324,7 +336,8 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
                 isNull.link(&jit);
             FALLTHROUGH;
         }
-        case Wasm::TypeKind::Externref: {
+#if USE(JSVALUE64) //FIXME: need 32bit version
+        case Wasm::TypeKind::Externref: {            
             if (isStack) {
                 jit.load64(jsParam, scratchGPR);
                 if (!type.isNullable())
@@ -338,10 +351,11 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
             }
             break;
         }
+#endif
         case Wasm::TypeKind::F32:
         case Wasm::TypeKind::F64: {
             if (!isStack)
-                scratchFPR = wasmCallInfo.params[i].fpr();
+                scratchFPR = wasmCallInfo.params[i].reg().fpr();
             auto moveToDestination = [&] () {
                 if (isStack) {
                     if (signature.argument(i).isF32())
@@ -350,25 +364,35 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
                         jit.storeDouble(scratchFPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
                 }
             };
-
+#if USE(JSVALUE64)
             jit.load64(jsParam, scratchGPR);
             slowPath.append(jit.branchIfNotNumber(scratchGPR));
+#else
+            jit.load32(jsParam, scratchGPR);
+            // FIXME: this is not right, what to use in JSValueRegs.
+            slowPath.append(jit.branchIfNotNumber(JSValueRegs() , scratchGPR));
+#endif
+
             auto isInt32 = jit.branchIfInt32(scratchGPR);
 
+#if USE(JSVALUE64) //FIXME: for 32bit
             jit.unboxDouble(scratchGPR, scratchGPR, scratchFPR);
-            if (signature.argument(i).isF32())
+#endif
+            if (signature.argument(i).isF32())                
                 jit.convertDoubleToFloat(scratchFPR, scratchFPR);
             moveToDestination();
             auto done = jit.jump();
 
             isInt32.link(&jit);
-            if (signature.argument(i).isF32()) {
+#if USE(JSVALUE64) //FIXME: for 32bit
+            if (signature.argument(i).isF32()) {                
                 jit.convertInt32ToFloat(scratchGPR, scratchFPR);
                 moveToDestination();
             } else {
                 jit.convertInt32ToDouble(scratchGPR, scratchFPR);
                 moveToDestination();
             }
+#endif
             done.link(&jit);
 
             break;

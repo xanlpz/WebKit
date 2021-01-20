@@ -45,6 +45,7 @@ namespace Wasm {
 
 class Instance;
 class Signature;
+typedef int64_t EncodedWasmValue;
 
 #if ENABLE(WEBASSEMBLY_B3JIT)
 JSC_DECLARE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&));
@@ -57,7 +58,7 @@ JSC_DECLARE_JIT_OPERATION(operationConvertToF64, double, (CallFrame*, JSValue));
 JSC_DECLARE_JIT_OPERATION(operationConvertToI32, int32_t, (CallFrame*, JSValue));
 JSC_DECLARE_JIT_OPERATION(operationConvertToF32, float, (CallFrame*, JSValue));
 
-JSC_DECLARE_JIT_OPERATION(operationConvertToBigInt, EncodedJSValue, (CallFrame*, Instance*, int64_t));
+JSC_DECLARE_JIT_OPERATION(operationConvertToBigInt, EncodedJSValue, (CallFrame*, Instance*, EncodedWasmValue));
 
 JSC_DECLARE_JIT_OPERATION(operationIterateResults, void, (CallFrame*, Instance*, const Signature*, JSValue, uint64_t*, uint64_t*));
 JSC_DECLARE_JIT_OPERATION(operationAllocateResultsArray, JSArray*, (CallFrame*, Wasm::Instance*, const Signature*, IndexingType, JSValue*));

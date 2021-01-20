@@ -217,7 +217,11 @@ ALWAYS_INLINE bool Parser<SuccessType>::parseUInt64(uint64_t& result)
 {
     if (length() < 8 || m_offset > length() - 8)
         return false;
+#if USE(JSVALUE64)
     result = *reinterpret_cast<const uint64_t*>(source() + m_offset);
+#else
+    memcpy(&result, source() + m_offset, sizeof(uint64_t));
+#endif
     m_offset += 8;
     return true;
 }
