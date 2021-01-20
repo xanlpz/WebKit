@@ -34,6 +34,8 @@ if X86_64
     const NumberOfWasmArgumentGPRs = 6
 elsif ARM64 or ARM64E
     const NumberOfWasmArgumentGPRs = 8
+elsif ARMv7
+    const NumberOfWasmArgumentGPRs = 6
 else
     error
 end
@@ -52,6 +54,8 @@ if X86_64
     const PB = csr2
 elsif ARM64 or ARM64E
     const PB = csr7
+elsif ARMv7
+    const PB = csr1
 else
     error
 end
@@ -201,6 +205,8 @@ macro preserveCalleeSavesUsedByWasm()
     elsif X86_64
         storep PB, -0x8[cfr]
         storep wasmInstance, -0x10[cfr]
+    elsif ARMv7
+        # FIXME
     else
         error
     end
@@ -215,6 +221,8 @@ macro restoreCalleeSavesUsedByWasm()
     elsif X86_64
         loadp -0x8[cfr], PB
         loadp -0x10[cfr], wasmInstance
+    elsif ARMv7
+        # FIXME
     else
         error
     end
@@ -975,6 +983,8 @@ wasmOp(i32_div_s, WasmI32DivS, macro (ctx)
         idivi t1
     elsif ARM64 or ARM64E
         divis t1, t0
+    elsif
+        #FIXME
     else
         error
     end
