@@ -87,9 +87,43 @@ WASM_SLOW_PATH_HIDDEN_DECL(throw);
 WASM_SLOW_PATH_HIDDEN_DECL(rethrow);
 WASM_SLOW_PATH_HIDDEN_DECL(retrieve_and_clear_exception);
 
+#if USE(JSVALUE32_64)
+WASM_SLOW_PATH_HIDDEN_DECL(f32_ceil);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_floor);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_trunc);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_nearest);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_ceil);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_floor);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_trunc);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_nearest);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_convert_u_i64);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_convert_s_i64);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_convert_u_i64);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_convert_s_i64);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_u_f32);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_s_f32);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_u_f64);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_s_f64);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_sat_f32_u);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_sat_f32_s);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_sat_f64_u);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_sat_f64_s);
+#endif
+
 extern "C" SlowPathReturnType slow_path_wasm_throw_exception(CallFrame*, const Instruction*, Wasm::Instance* instance, Wasm::ExceptionType) REFERENCED_FROM_ASM WTF_INTERNAL;
 extern "C" SlowPathReturnType slow_path_wasm_popcount(const Instruction* pc, uint32_t) REFERENCED_FROM_ASM WTF_INTERNAL;
 extern "C" SlowPathReturnType slow_path_wasm_popcountll(const Instruction* pc, uint64_t) REFERENCED_FROM_ASM WTF_INTERNAL;
+
+#if USE(JSVALUE32_64)
+extern "C" int32_t slow_path_wasm_i32_div_s(int32_t a, int32_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" uint32_t slow_path_wasm_i32_div_u(uint32_t a, uint32_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" int32_t slow_path_wasm_i32_rem_s(int32_t a, int32_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" uint32_t slow_path_wasm_i32_rem_u(uint32_t a, uint32_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" int64_t slow_path_wasm_i64_div_s(int64_t a, int64_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" uint64_t slow_path_wasm_i64_div_u(uint64_t a, uint64_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" int64_t slow_path_wasm_i64_rem_s(int64_t a, int64_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" uint64_t slow_path_wasm_i64_rem_u(uint64_t a, uint64_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+#endif
 
 } } // namespace JSC::LLInt
 

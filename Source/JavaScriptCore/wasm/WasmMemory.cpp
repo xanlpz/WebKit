@@ -105,6 +105,9 @@ public:
     
     MemoryResult tryAllocateFastMemory()
     {
+#if CPU(ADDRESS32)
+        UNREACHABLE_FOR_PLATFORM(); // Fast (signaling) memory requires a 64-bit address space
+#endif
         MemoryResult result = [&] {
             Locker locker { m_lock };
             if (m_fastMemories.size() >= m_maxFastMemoryCount)
@@ -128,6 +131,9 @@ public:
     
     void freeFastMemory(void* basePtr)
     {
+#if CPU(ADDRESS32)
+        UNREACHABLE_FOR_PLATFORM(); // Fast (signaling) memory requires a 64-bit address space
+#endif
         {
             Locker locker { m_lock };
             Gigacage::freeVirtualPages(Gigacage::Primitive, basePtr, Memory::fastMappedBytes());
@@ -291,6 +297,9 @@ MemoryHandle::MemoryHandle(void* memory, size_t size, size_t mappedCapacity, Pag
 #if ASSERT_ENABLED
     if (sharingMode == MemorySharingMode::Default && mode == MemoryMode::BoundsChecking)
         ASSERT(mappedCapacity == size);
+#endif
+#if CPU(ADDRESS32)
+    RELEASE_ASSERT(mode != MemoryMode::Signaling);  // Fast (signaling) memory requires a 64-bit address space
 #endif
 }
 
@@ -463,8 +472,12 @@ size_t Memory::fastMappedRedzoneBytes()
 
 size_t Memory::fastMappedBytes()
 {
+#if CPU(ADDRESS64)
     static_assert(sizeof(uint64_t) == sizeof(size_t), "We rely on allowing the maximum size of Memory we map to be 2^32 + redzone which is larger than fits in a 32-bit integer that we'd pass to mprotect if this didn't hold.");
     return (static_cast<size_t>(1) << 32) + fastMappedRedzoneBytes();
+#elif CPU(ADDRESS32)
+    UNREACHABLE_FOR_PLATFORM(); // Fast (signaling) memory requires a 64-bit address space
+#endif
 }
 
 bool Memory::addressIsInGrowableOrFastMemory(void* address)
@@ -524,8 +537,14 @@ Expected<PageCount, Memory::GrowFailReason> Memory::growShared(PageCount delta)
         m_handle->growToSize(desiredSize);
         return oldPageCount;
     }());
-    if (result)
+    if (result) {
         m_growSuccessCallback(GrowSuccessTag, oldPageCount, newPageCount);
+        // Update cache for instance
+        for (auto& instance : m_instances) {
+            if (instance.get() != nullptr)
+                instance.get()->updateCachedMemory();
+        }
+    }
     return result;
 }
 
@@ -646,7 +665,8 @@ bool Memory::copy(uint32_t dstAddress, uint32_t srcAddress, uint32_t count)
         return true;
 
     uint8_t* base = reinterpret_cast<uint8_t*>(memory());
-    memcpy(base + dstAddress, base + srcAddress, count);
+    // Source and destination areas might overlap, so using memmove.
+    memmove(base + dstAddress, base + srcAddress, count);
     return true;
 }
 

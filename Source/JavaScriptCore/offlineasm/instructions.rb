@@ -59,6 +59,7 @@ MACRO_INSTRUCTIONS =
      "rrotateq",
      "subi",
      "xori",
+     "load2ia",
      "loadi",
      "loadis",
      "loadb",
@@ -67,6 +68,7 @@ MACRO_INSTRUCTIONS =
      "loadh",
      "loadhsi",
      "loadhsq",
+     "store2ia",
      "storei",
      "storeh",
      "storeb",
@@ -377,9 +379,13 @@ X86_INSTRUCTIONS =
 
 ARM_INSTRUCTIONS =
     [
+     "adci",
+     "bcs",
      "clrbp",
      "mvlbl",
-     "globaladdr"
+     "globaladdr",
+     "sbci",
+     "moveii"
     ]
 
 ARM64_INSTRUCTIONS =
@@ -431,6 +437,7 @@ ARM64_INSTRUCTIONS =
 RISC_INSTRUCTIONS =
     [
      "smulli",  # Multiply two 32-bit words and produce a 64-bit word
+     "umulli",  # Multiply two 32-bit words and produce a 64-bit word
      "addis",   # Add integers and set a flag.
      "subis",   # Same, but for subtraction.
      "oris",    # Same, but for bitwise or.
