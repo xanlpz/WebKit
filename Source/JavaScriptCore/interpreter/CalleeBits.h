@@ -37,6 +37,9 @@ class Callee;
 class JSCell;
 
 class CalleeBits {
+#if USE(JSVALUE32_64)
+    static constexpr uintptr_t wasmTag = 1;
+#endif
 public:
     CalleeBits() = default;
     CalleeBits(void* ptr) : m_ptr(ptr) { } 
@@ -51,16 +54,31 @@ public:
 #if ENABLE(WEBASSEMBLY)
     static void* boxWasm(Wasm::Callee* callee)
     {
+#if USE(JSVALUE64)
         CalleeBits result(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(callee) | JSValue::WasmTag));
         ASSERT(result.isWasm());
         return result.rawPtr();
+#elif USE(JSVALUE32_64)
+        ASSERT(!(bitwise_cast<uintptr_t>(callee) & wasmTag));
+        return bitwise_cast<void*>(bitwise_cast<uintptr_t>(callee) | wasmTag);
+#endif
     }
 #endif
 
     bool isWasm() const
     {
 #if ENABLE(WEBASSEMBLY)
+#if USE(JSVALUE64)
         return (reinterpret_cast<uintptr_t>(m_ptr) & JSValue::WasmMask) == JSValue::WasmTag;
+#elif USE(JSVALUE32_64)
+        // FIXME: this allows us to ignore the tagging that happens in
+        // CallLinkInfo for polymorphic calls, which just sets the
+        // whole callee to "0x1" and should never happen as a result
+        // of boxWasm. We probably want to do something nicer in
+        // general.
+        if (reinterpret_cast<uintptr_t>(m_ptr) == 0x1) return false;
+        return bitwise_cast<uintptr_t>(m_ptr) & wasmTag;
+#endif
 #else
         return false;
 #endif
@@ -77,7 +95,11 @@ public:
     Wasm::Callee* asWasmCallee() const
     {
         ASSERT(isWasm());
+#if USE(JSVALUE64)
         return reinterpret_cast<Wasm::Callee*>(reinterpret_cast<uintptr_t>(m_ptr) & ~JSValue::WasmTag);
+#elif USE(JSVALUE32_64)
+        return bitwise_cast<Wasm::Callee*>(bitwise_cast<uintptr_t>(m_ptr) & ~wasmTag);
+#endif
     }
 #endif
 
