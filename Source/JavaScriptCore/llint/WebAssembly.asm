@@ -983,7 +983,7 @@ wasmOp(i32_div_s, WasmI32DivS, macro (ctx)
         idivi t1
     elsif ARM64 or ARM64E
         divis t1, t0
-    elsif
+    elsif ARMv7
         #FIXME
     else
         error
@@ -1008,6 +1008,8 @@ wasmOp(i32_div_u, WasmI32DivU, macro (ctx)
         udivi t1
     elsif ARM64 or ARM64E
         divi t1, t0
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -1039,6 +1041,8 @@ wasmOp(i32_rem_s, WasmI32RemS, macro (ctx)
         divis t1, t0, t2
         muli t1, t2
         subi t0, t2, t2
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -1063,6 +1067,8 @@ wasmOp(i32_rem_u, WasmI32RemU, macro (ctx)
         divi t1, t0, t2
         muli t1, t2
         subi t0, t2, t2
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -1104,6 +1110,8 @@ wasmOp(i64_div_s, WasmI64DivS, macro (ctx)
         idivq t1
     elsif ARM64 or ARM64E
         divqs t1, t0
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -1127,6 +1135,8 @@ wasmOp(i64_div_u, WasmI64DivU, macro (ctx)
         udivq t1
     elsif ARM64 or ARM64E
         divq t1, t0
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -1158,6 +1168,8 @@ wasmOp(i64_rem_s, WasmI64RemS, macro (ctx)
         divqs t1, t0, t2
         mulq t1, t2
         subq t0, t2, t2
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -1182,6 +1194,8 @@ wasmOp(i64_rem_u, WasmI64RemU, macro (ctx)
         divq t1, t0, t2
         mulq t1, t2
         subq t0, t2, t2
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -1380,6 +1394,8 @@ wasmOp(f32_convert_u_i64, WasmF32ConvertUI64, macro (ctx)
         cq2f t0, t1, ft0
     elsif ARM64 or ARM64E
         cq2f t0, ft0
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -1392,6 +1408,8 @@ wasmOp(f64_convert_u_i64, WasmF64ConvertUI64, macro (ctx)
         cq2d t0, t1, ft0
     elsif ARM64 or ARM64E
         cq2d t0, ft0
+    elsif ARMv7
+        #FIXME
     else
         error
     end
@@ -2258,6 +2276,8 @@ macro wasmAtomicBinaryRMWOpsWithWeakCAS(lowerCaseOpcode, upperCaseOpcode, fni, f
                 move t0GPR, t2GPR
                 fni(t5GPR, t2GPR)
                 batomicweakcasb t0GPR, t2GPR, mem, .loop
+            elsif ARMv7
+                #FIXME
             else
             .loop:
                 loadlinkacqb mem, t1GPR
@@ -2275,6 +2295,8 @@ macro wasmAtomicBinaryRMWOpsWithWeakCAS(lowerCaseOpcode, upperCaseOpcode, fni, f
                 move t0GPR, t2GPR
                 fni(t5GPR, t2GPR)
                 batomicweakcash t0GPR, t2GPR, mem, .loop
+            elsif ARMv7
+                #FIXME
             else
             .loop:
                 loadlinkacqh mem, t1GPR
@@ -2292,6 +2314,8 @@ macro wasmAtomicBinaryRMWOpsWithWeakCAS(lowerCaseOpcode, upperCaseOpcode, fni, f
                 move t0GPR, t2GPR
                 fni(t5GPR, t2GPR)
                 batomicweakcasi t0GPR, t2GPR, mem, .loop
+            elsif ARMv7
+                #FIXME
             else
             .loop:
                 loadlinkacqi mem, t1GPR
@@ -2309,6 +2333,8 @@ macro wasmAtomicBinaryRMWOpsWithWeakCAS(lowerCaseOpcode, upperCaseOpcode, fni, f
                 move t0GPR, t2GPR
                 fnq(t5GPR, t2GPR)
                 batomicweakcasq t0GPR, t2GPR, mem, .loop
+            elsif ARMv7
+                #FIXME
             else
             .loop:
                 loadlinkacqq mem, t1GPR
@@ -2511,6 +2537,8 @@ wasmAtomicCompareExchangeOps(_cmpxchg, Cmpxchg,
         .fail:
             atomicloadb mem, t0GPR
         .done:
+        elsif ARMv7
+            #FIXME
         else
         .loop:
             loadlinkacqb mem, t1GPR
@@ -2534,6 +2562,8 @@ wasmAtomicCompareExchangeOps(_cmpxchg, Cmpxchg,
         .fail:
             atomicloadh mem, t0GPR
         .done:
+        elsif ARMv7
+            #FIXME
         else
         .loop:
             loadlinkacqh mem, t1GPR
@@ -2557,6 +2587,8 @@ wasmAtomicCompareExchangeOps(_cmpxchg, Cmpxchg,
         .fail:
             atomicloadi mem, t0GPR
         .done:
+        elsif ARMv7
+            #FIXME
         else
         .loop:
             loadlinkacqi mem, t1GPR
@@ -2575,6 +2607,8 @@ wasmAtomicCompareExchangeOps(_cmpxchg, Cmpxchg,
     macro(t0GPR, t2GPR, mem, t5GPR, t1GPR)
         if X86_64 or ARM64E
             atomicweakcasq t0GPR, t2GPR, mem
+        elsif ARMv7
+            #FIXME
         else
         .loop:
             loadlinkacqq mem, t1GPR
