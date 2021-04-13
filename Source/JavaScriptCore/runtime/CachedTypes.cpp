@@ -2157,6 +2157,8 @@ ALWAYS_INLINE UnlinkedCodeBlock::UnlinkedCodeBlock(Decoder& decoder, Structure* 
 template<typename CodeBlockType>
 ALWAYS_INLINE void CachedCodeBlock<CodeBlockType>::decode(Decoder& decoder, UnlinkedCodeBlock& codeBlock) const
 {
+    codeBlock.m_thisRegister = m_thisRegister;
+    codeBlock.m_scopeRegister = m_scopeRegister;
     m_constantRegisters.decode(decoder, codeBlock.m_constantRegisters, &codeBlock);
     m_constantsSourceCodeRepresentation.decode(decoder, codeBlock.m_constantsSourceCodeRepresentation);
     m_expressionInfo.decode(decoder, codeBlock.m_expressionInfo);
