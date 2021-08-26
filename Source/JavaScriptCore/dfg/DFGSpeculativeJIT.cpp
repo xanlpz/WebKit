@@ -13590,10 +13590,6 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
             SpeculateStrictInt32Operand mode(this, m_graph.varArgChild(node, 4));
             SpeculateCellOperand enumerator(this, m_graph.varArgChild(node, 5));
 
-            GPRReg modeGPR = mode.gpr();
-            indexGPR = index.gpr();
-            enumeratorGPR = enumerator.gpr();
-
             result = JSValueRegsTemporary(this);
             resultRegs = result.regs();
             GPRReg scratchGPR = resultRegs.payloadGPR();
@@ -13609,6 +13605,7 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
 
             MacroAssembler::JumpList notFastNamedCases;
 
+            GPRReg modeGPR = mode.gpr();
             // FIXME: We shouldn't generate this code if we know base is not an object.
             notFastNamedCases.append(m_jit.branchTest32(MacroAssembler::NonZero, modeGPR, TrustedImm32(JSPropertyNameEnumerator::IndexedMode | JSPropertyNameEnumerator::GenericMode)));
             {
@@ -13619,6 +13616,7 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
                 // FIXME: If we know there's only one structure for base we can just embed it here.
                 m_jit.load32(MacroAssembler::Address(baseCellGPR, JSCell::structureIDOffset()), scratchGPR);
 
+                enumeratorGPR = enumerator.gpr();
                 auto badStructure = m_jit.branch32(
                     MacroAssembler::NotEqual,
                     scratchGPR,
@@ -13633,6 +13631,7 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
 
                 // Compute the offset
                 // If index is less than the enumerator's cached inline storage, then it's an inline access
+                indexGPR = index.gpr();
                 MacroAssembler::Jump outOfLineAccess = m_jit.branch32(MacroAssembler::AboveOrEqual,
                     indexGPR, MacroAssembler::Address(enumeratorGPR, JSPropertyNameEnumerator::cachedInlineCapacityOffset()));
 
