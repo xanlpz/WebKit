@@ -1,3 +1,22 @@
+2021-09-03  Xan López  <xan@igalia.com>
+
+        [JSC] ASSERT failed in stress/for-in-tests.js (32bit)
+        https://bugs.webkit.org/show_bug.cgi?id=229543
+
+        Reviewed by NOBODY (OOPS!).
+
+        DFG::SpeculativeJIT::compileEnumeratorGetByVal uses two more
+        registers than we have on ARMv7. Add one more callee-save register
+        to DFG, and reuse one register in that method.
+
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileEnumeratorGetByVal):
+        * jit/GPRInfo.h:
+        (JSC::GPRInfo::toRegister):
+        (JSC::GPRInfo::toIndex):
+        * jit/RegisterSet.cpp:
+        (JSC::RegisterSet::dfgCalleeSaveRegisters):
+
 2021-09-03  Yusuke Suzuki  <ysuzuki@apple.com>
 
         [JSC] Make EnumeratorNextUpdateIndexAndMode clobberizing rule precise

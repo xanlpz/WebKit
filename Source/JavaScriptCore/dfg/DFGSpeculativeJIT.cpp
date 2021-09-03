@@ -13648,18 +13648,11 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
             indexGPR = index.gpr();
             enumeratorGPR = enumerator.gpr();
 
+            flushRegisters();
+
             result = JSValueRegsTemporary(this);
             resultRegs = result.regs();
             GPRReg scratchGPR = resultRegs.payloadGPR();
-
-            bool haveStorage = !!storageEdge;
-            GPRTemporary storageTemporary;
-            GPRReg storageGPR;
-            if (!haveStorage) {
-                storageTemporary = GPRTemporary(this, Reuse, enumerator);
-                storageGPR = storageTemporary.gpr();
-            } else
-                storageGPR = storage.gpr();
 
             MacroAssembler::JumpList notFastNamedCases;
 
@@ -13700,8 +13693,16 @@ void SpeculativeJIT::compileEnumeratorGetByVal(Node* node)
                 m_jit.sub32(MacroAssembler::Address(enumeratorGPR, JSPropertyNameEnumerator::cachedInlineCapacityOffset()), scratchGPR);
                 m_jit.neg32(scratchGPR);
                 m_jit.signExtend32ToPtr(scratchGPR, scratchGPR);
-                if (!haveStorage)
+                bool haveStorage = !!storageEdge;
+                GPRReg storageGPR;
+                flushRegisters();
+                if (!haveStorage) {
+                    // We can reuse modeGPR, since it's not used anymore. This reduces a bit the register pressure in some architectures.
+                    storageGPR = modeGPR;
                     m_jit.loadPtr(MacroAssembler::Address(baseCellGPR, JSObject::butterflyOffset()), storageGPR);
+                } else
+                    storageGPR = storage.gpr();
+
                 constexpr intptr_t offsetOfFirstProperty = offsetInButterfly(firstOutOfLineOffset) * static_cast<intptr_t>(sizeof(EncodedJSValue));
                 m_jit.loadValue(MacroAssembler::BaseIndex(storageGPR, scratchGPR, MacroAssembler::TimesEight, offsetOfFirstProperty), resultRegs);
                 doneCases.append(m_jit.jump());
