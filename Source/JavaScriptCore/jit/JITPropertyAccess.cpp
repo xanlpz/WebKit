@@ -127,7 +127,14 @@ void JIT::generateGetByValSlowCase(const OpcodeType& bytecode, Vector<SlowCaseEn
     loadGlobalObject(argumentGPR0);
     loadConstant(gen.m_unlinkedStubInfoConstantIndex, argumentGPR1);
     materializePointerIntoMetadata(bytecode, OpcodeType::Metadata::offsetOfArrayProfile(), argumentGPR2);
-    callOperationWithProfile<decltype(operationGetByValOptimize)>(bytecode, Address(argumentGPR1, StructureStubInfo::offsetOfSlowOperation()), dst, argumentGPR0, argumentGPR1, argumentGPR2, argumentGPR3, viableArgumentGPR4);
+    callOperationWithProfile<decltype(operationGetByValOptimize)>(bytecode, 
+        Address(argumentGPR1, StructureStubInfo::offsetOfSlowOperation()), 
+        dst, 
+        argumentGPR0, 
+        argumentGPR1,
+        argumentGPR2, 
+        argumentGPR3, 
+        viableArgumentGPR4);
 #else
     VM& vm = this->vm();
     uint32_t bytecodeOffset = m_bytecodeIndex.offset();

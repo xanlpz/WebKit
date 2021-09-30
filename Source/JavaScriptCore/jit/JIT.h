@@ -152,13 +152,8 @@ namespace JSC {
 
     struct CallCompilationInfo {
         MacroAssembler::Label doneLocation;
-#if USE(JSVALUE64)
         UnlinkedCallLinkInfo* unlinkedCallLinkInfo;
         JITConstantPool::Constant callLinkInfoConstant;
-#else
-        MacroAssembler::Label slowPathStart;
-        CallLinkInfo* callLinkInfo;
-#endif
     };
 
     void ctiPatchCallByReturnAddress(ReturnAddressPtr, FunctionPtr<CFunctionPtrTag> newCalleeFunction);
@@ -294,7 +289,6 @@ namespace JSC {
         void compileOpCall(const Instruction*, unsigned callLinkInfoIndex);
         template<typename Op>
         void compileOpCallSlowCase(const Instruction*, Vector<SlowCaseEntry>::iterator&, unsigned callLinkInfoIndex);
-#if USE(JSVALUE64)
         template<typename Op>
         std::enable_if_t<
             Op::opcodeID != op_call_varargs && Op::opcodeID != op_construct_varargs
@@ -306,19 +300,6 @@ namespace JSC {
             Op::opcodeID == op_call_varargs || Op::opcodeID == op_construct_varargs
             || Op::opcodeID == op_tail_call_varargs || Op::opcodeID == op_tail_call_forward_arguments
         , void> compileSetupFrame(const Op&, JITConstantPool::Constant callLinkInfoConstant);
-#else
-        template<typename Op>
-        std::enable_if_t<
-            Op::opcodeID != op_call_varargs && Op::opcodeID != op_construct_varargs
-            && Op::opcodeID != op_tail_call_varargs && Op::opcodeID != op_tail_call_forward_arguments
-        , void> compileSetupFrame(const Op&, CallLinkInfo*);
-
-        template<typename Op>
-        std::enable_if_t<
-            Op::opcodeID == op_call_varargs || Op::opcodeID == op_construct_varargs
-            || Op::opcodeID == op_tail_call_varargs || Op::opcodeID == op_tail_call_forward_arguments
-        , void> compileSetupFrame(const Op&, CallLinkInfo*);
-#endif
 
         template<typename Op>
         bool compileTailCall(const Op&, UnlinkedCallLinkInfo*, unsigned callLinkInfoIndex, JITConstantPool::Constant);
@@ -347,11 +328,8 @@ namespace JSC {
         // scratch.
 #if USE(JSVALUE64)
         template<typename Bytecode> void emitValueProfilingSite(const Bytecode&, GPRReg);
-        template<typename Bytecode> void emitValueProfilingSite(const Bytecode&, JSValueRegs);
-#else
-        void emitValueProfilingSite(ValueProfile&, JSValueRegs);
-        template<typename Metadata> void emitValueProfilingSite(Metadata&, JSValueRegs);
 #endif
+        template<typename Bytecode> void emitValueProfilingSite(const Bytecode&, JSValueRegs);
 
         void emitValueProfilingSiteIfProfiledOpcode(...);
         template<typename Op>

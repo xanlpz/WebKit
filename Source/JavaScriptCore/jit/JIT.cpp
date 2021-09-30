@@ -30,6 +30,7 @@
 #include "JIT.h"
 
 #include "BytecodeGraph.h"
+#include "CallFrameShuffleData.h"
 #include "CodeBlock.h"
 #include "CodeBlockWithJITType.h"
 #include "DFGCapabilities.h"
@@ -969,16 +970,8 @@ void JIT::link()
 #endif
 
     for (auto& compilationInfo : m_callCompilationInfo) {
-#if USE(JSVALUE64)
         UnlinkedCallLinkInfo& info = *compilationInfo.unlinkedCallLinkInfo;
         info.doneLocation = patchBuffer.locationOf<JSInternalPtrTag>(compilationInfo.doneLocation);
-#else
-        CallLinkInfo& info = *compilationInfo.callLinkInfo;
-        info.setCodeLocations(
-            patchBuffer.locationOf<JSInternalPtrTag>(compilationInfo.slowPathStart),
-            patchBuffer.locationOf<JSInternalPtrTag>(compilationInfo.doneLocation));
-#endif
-
     }
 
     JITCodeMapBuilder jitCodeMapBuilder;

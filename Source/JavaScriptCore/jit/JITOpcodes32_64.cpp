@@ -876,7 +876,7 @@ void JIT::emit_op_to_number(const Instruction* currentInstruction)
     addSlowCase(branch32(AboveOrEqual, regT1, TrustedImm32(JSValue::LowestTag)));
     isInt32.link(this);
 
-    emitValueProfilingSite(bytecode.metadata(m_profiledCodeBlock), JSValueRegs(regT1, regT0));
+    emitValueProfilingSite(bytecode, JSValueRegs(regT1, regT0));
     if (src != dst)
         emitStore(dst, regT1, regT0);
 }
@@ -898,7 +898,7 @@ void JIT::emit_op_to_numeric(const Instruction* currentInstruction)
     addSlowCase(branchIfNotNumber(argumentValueRegs, regT2));
     isBigInt.link(this);
 
-    emitValueProfilingSite(bytecode.metadata(m_profiledCodeBlock), JSValueRegs(regT1, regT0));
+    emitValueProfilingSite(bytecode, JSValueRegs(regT1, regT0));
     if (src != dst)
         emitStore(dst, regT1, regT0);
 }
@@ -929,7 +929,7 @@ void JIT::emit_op_to_object(const Instruction* currentInstruction)
     addSlowCase(branchIfNotCell(regT1));
     addSlowCase(branchIfNotObject(regT0));
 
-    emitValueProfilingSite(bytecode.metadata(m_profiledCodeBlock), JSValueRegs(regT1, regT0));
+    emitValueProfilingSite(bytecode, JSValueRegs(regT1, regT0));
     if (src != dst)
         emitStore(dst, regT1, regT0);
 }
@@ -979,23 +979,11 @@ void JIT::emit_op_catch(const Instruction* currentInstruction)
     // argument type proofs, storing locals to the buffer, etc
     // https://bugs.webkit.org/show_bug.cgi?id=175598
 
-    auto& metadata = bytecode.metadata(m_profiledCodeBlock);
-    ValueProfileAndVirtualRegisterBuffer* buffer = metadata.m_buffer;
-    if (buffer || !shouldEmitProfiling())
-        callOperationNoExceptionCheck(operationTryOSREnterAtCatch, &vm(), m_bytecodeIndex.asBits());
-    else
-        callOperationNoExceptionCheck(operationTryOSREnterAtCatchAndValueProfile, &vm(), m_bytecodeIndex.asBits());
+    callOperationNoExceptionCheck(operationTryOSREnterAtCatchAndValueProfile, &vm(), m_bytecodeIndex.asBits());
     auto skipOSREntry = branchTestPtr(Zero, returnValueGPR);
     emitRestoreCalleeSaves();
     farJump(returnValueGPR, NoPtrTag);
     skipOSREntry.link(this);
-    if (buffer && shouldEmitProfiling()) {
-        buffer->forEach([&] (ValueProfileAndVirtualRegister& profile) {
-            JSValueRegs regs(regT1, regT0);
-            emitGetVirtualRegister(profile.m_operand, regs);
-            emitValueProfilingSite(static_cast<ValueProfile&>(profile), regs);
-        });
-    }
 #endif // ENABLE(DFG_JIT)
 }
 
@@ -1093,7 +1081,7 @@ void JIT::emit_op_enter(const Instruction* currentInstruction)
     // Even though JIT code doesn't use them, we initialize our constant
     // registers to zap stale pointers, to avoid unnecessarily prolonging
     // object lifetime and increasing GC pressure.
-    for (int i = CodeBlock::llintBaselineCalleeSaveSpaceAsVirtualRegisters(); i < m_profiledCodeBlock->numVars(); ++i)
+    for (unsigned i = CodeBlock::llintBaselineCalleeSaveSpaceAsVirtualRegisters(); i < m_profiledCodeBlock->numVars(); ++i)
         emitStore(virtualRegisterForLocal(i), jsUndefined());
 
     JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_enter);

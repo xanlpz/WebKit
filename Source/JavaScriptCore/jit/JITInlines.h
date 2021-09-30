@@ -325,30 +325,18 @@ ALWAYS_INLINE bool JIT::isOperandConstantChar(VirtualRegister src)
     return getConstantOperand(src).isString() && asString(getConstantOperand(src).asCell())->length() == 1;
 }
 
-#if USE(JSVALUE32_64)
-inline void JIT::emitValueProfilingSite(ValueProfile& valueProfile, JSValueRegs value)
-{
-    ASSERT(shouldEmitProfiling());
-
-    EncodedValueDescriptor* descriptor = bitwise_cast<EncodedValueDescriptor*>(valueProfile.m_buckets);
-    store32(value.payloadGPR(), &descriptor->asBits.payload);
-    store32(value.tagGPR(), &descriptor->asBits.tag);
-}
-#endif
-
 template<typename Op>
 inline std::enable_if_t<std::is_same<decltype(Op::Metadata::m_profile), ValueProfile>::value, void> JIT::emitValueProfilingSiteIfProfiledOpcode(Op bytecode)
 {
 #if USE(JSVALUE64)
     emitValueProfilingSite(bytecode, regT0);
 #else
-    emitValueProfilingSite(bytecode.metadata(m_codeBlock), JSValueRegs(regT1, regT0));
+    emitValueProfilingSite(bytecode, JSValueRegs(regT1, regT0));
 #endif
 }
 
 inline void JIT::emitValueProfilingSiteIfProfiledOpcode(...) { }
 
-#if USE(JSVALUE64)
 template<typename Bytecode>
 inline void JIT::emitValueProfilingSite(const Bytecode& bytecode, JSValueRegs value)
 {
@@ -356,9 +344,15 @@ inline void JIT::emitValueProfilingSite(const Bytecode& bytecode, JSValueRegs va
         return;
 
     ptrdiff_t offset = m_unlinkedCodeBlock->metadata().offsetInMetadataTable(bytecode) + valueProfileOffsetFor<Bytecode>(m_bytecodeIndex.checkpoint()) + ValueProfile::offsetOfFirstBucket();
+#if USE(JSVALUE64)
     store64(value.gpr(), Address(s_metadataGPR, offset));
+#else
+    // FIXME
+    store32(value.payloadGPR(), Address(s_metadataGPR, offset));
+#endif
 }
 
+#if USE(JSVALUE64)
 template<typename Bytecode>
 inline void JIT::emitValueProfilingSite(const Bytecode& bytecode, GPRReg resultReg)
 {
