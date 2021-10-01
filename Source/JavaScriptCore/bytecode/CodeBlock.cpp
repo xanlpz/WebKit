@@ -949,7 +949,11 @@ bool CodeBlock::isConstantOwnedByUnlinkedCodeBlock(VirtualRegister reg) const
     }
     case SourceCodeRepresentation::LinkTimeConstant:
         return false;
+    default:
+        ASSERT_NOT_REACHED();
     }
+
+    return false;
 }
 
 Vector<unsigned> CodeBlock::setConstantRegisters(const FixedVector<WriteBarrier<Unknown>>& constants, const FixedVector<SourceCodeRepresentation>& constantsSourceCodeRepresentation)
