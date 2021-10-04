@@ -356,6 +356,7 @@ void JITInByValGenerator::generateFastPath(MacroAssembler& jit)
         jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
     } else
         m_slowPathJump = jit.patchableJump();
+    m_slowPathJump = jit.patchableJump();    
     m_done = jit.label();
 }
 
@@ -446,6 +447,7 @@ void JITInstanceOfGenerator::generateFastPath(MacroAssembler& jit)
         jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
     } else
         m_slowPathJump = jit.patchableJump();
+    m_slowPathJump = jit.patchableJump();    
     m_done = jit.label();
 }
 
@@ -482,6 +484,7 @@ void JITGetByValGenerator::generateFastPath(MacroAssembler& jit)
         jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
     } else
         m_slowPathJump = jit.patchableJump();
+    m_slowPathJump = jit.patchableJump();    
     m_done = jit.label();
 }
 
@@ -519,6 +522,7 @@ void JITPutByValGenerator::generateFastPath(MacroAssembler& jit)
         jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
     } else
         m_slowPathJump = jit.patchableJump();
+    m_slowPathJump = jit.patchableJump();    
     m_done = jit.label();
 }
 

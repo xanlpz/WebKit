@@ -65,8 +65,12 @@ ALWAYS_INLINE bool JIT::isKnownCell(VirtualRegister src)
 ALWAYS_INLINE JSValue JIT::getConstantOperand(VirtualRegister src)
 {
     ASSERT(src.isConstant());
+#if USE(JSVALUE32_64)
+    return m_profiledCodeBlock->getConstant(src);
+#else
     RELEASE_ASSERT(m_unlinkedCodeBlock->constantSourceCodeRepresentation(src) != SourceCodeRepresentation::LinkTimeConstant);
     return m_unlinkedCodeBlock->getConstant(src);
+#endif
 }
 
 ALWAYS_INLINE void JIT::emitPutIntToCallFrameHeader(RegisterID from, VirtualRegister entry)

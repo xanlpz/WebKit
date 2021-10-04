@@ -167,7 +167,7 @@ void JIT::emit_op_instanceof(const Instruction* currentInstruction)
         regT0, // result
         regT2, // value
         regT1, // proto
-        InvalidGPRReg,
+        regT1, // FIXME
         regT3, regT4); // scratch
     gen.generateFastPath(*this);
     addSlowCase(gen.slowPathJump());
