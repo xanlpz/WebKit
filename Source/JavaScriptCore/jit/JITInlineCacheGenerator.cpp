@@ -281,10 +281,10 @@ JITDelByValGenerator::JITDelByValGenerator(CodeBlock* codeBlock, JITType jitType
 void JITDelByValGenerator::generateFastPath(MacroAssembler& jit)
 {
     m_start = jit.label();
-    if (JITCode::useDataIC(m_jitType)) {
-        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
-        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
-    } else
+//    if (JITCode::useDataIC(m_jitType)) {
+//        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
+//        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
+//    } else
         m_slowPathJump = jit.patchableJump();
     m_done = jit.label();
 }
@@ -317,10 +317,10 @@ JITDelByIdGenerator::JITDelByIdGenerator(CodeBlock* codeBlock, JITType jitType, 
 void JITDelByIdGenerator::generateFastPath(MacroAssembler& jit)
 {
     m_start = jit.label();
-    if (JITCode::useDataIC(m_jitType)) {
-        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
-        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
-    } else
+//    if (JITCode::useDataIC(m_jitType)) {
+//        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
+//        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
+//    } else
         m_slowPathJump = jit.patchableJump();
     m_done = jit.label();
 }
@@ -351,12 +351,11 @@ JITInByValGenerator::JITInByValGenerator(CodeBlock* codeBlock, JITType jitType, 
 void JITInByValGenerator::generateFastPath(MacroAssembler& jit)
 {
     m_start = jit.label();
-    if (JITCode::useDataIC(m_jitType)) {
-        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
-        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
-    } else
+//    if (JITCode::useDataIC(m_jitType)) {
+//        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
+//        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
+//    } else
         m_slowPathJump = jit.patchableJump();
-    m_slowPathJump = jit.patchableJump();    
     m_done = jit.label();
 }
 
@@ -442,12 +441,11 @@ JITInstanceOfGenerator::JITInstanceOfGenerator(
 void JITInstanceOfGenerator::generateFastPath(MacroAssembler& jit)
 {
     m_start = jit.label();
-    if (JITCode::useDataIC(m_jitType)) {
-        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
-        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
-    } else
+//    if (JITCode::useDataIC(m_jitType)) {
+//        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
+//        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
+//    } else
         m_slowPathJump = jit.patchableJump();
-    m_slowPathJump = jit.patchableJump();    
     m_done = jit.label();
 }
 
@@ -479,12 +477,11 @@ JITGetByValGenerator::JITGetByValGenerator(CodeBlock* codeBlock, JITType jitType
 void JITGetByValGenerator::generateFastPath(MacroAssembler& jit)
 {
     m_start = jit.label();
-    if (JITCode::useDataIC(m_jitType)) {
-        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
-        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
-    } else
+//    if (JITCode::useDataIC(m_jitType)) {
+//        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
+//        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
+//    } else
         m_slowPathJump = jit.patchableJump();
-    m_slowPathJump = jit.patchableJump();    
     m_done = jit.label();
 }
 
@@ -517,12 +514,11 @@ JITPutByValGenerator::JITPutByValGenerator(CodeBlock* codeBlock, JITType jitType
 void JITPutByValGenerator::generateFastPath(MacroAssembler& jit)
 {
     m_start = jit.label();
-    if (JITCode::useDataIC(m_jitType)) {
-        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
-        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
-    } else
+//    if (JITCode::useDataIC(m_jitType)) {
+//        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
+//        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
+//    } else
         m_slowPathJump = jit.patchableJump();
-    m_slowPathJump = jit.patchableJump();    
     m_done = jit.label();
 }
 
@@ -553,10 +549,10 @@ JITPrivateBrandAccessGenerator::JITPrivateBrandAccessGenerator(CodeBlock* codeBl
 void JITPrivateBrandAccessGenerator::generateFastPath(MacroAssembler& jit)
 {
     m_start = jit.label();
-    if (JITCode::useDataIC(m_jitType)) {
-        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
-        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
-    } else
+//    if (JITCode::useDataIC(m_jitType)) {
+//        jit.move(CCallHelpers::TrustedImmPtr(m_stubInfo), m_stubInfo->m_stubInfoGPR);
+//        jit.farJump(CCallHelpers::Address(m_stubInfo->m_stubInfoGPR, StructureStubInfo::offsetOfCodePtr()), JITStubRoutinePtrTag);
+//    } else
         m_slowPathJump = jit.patchableJump();
     m_done = jit.label();
 }
