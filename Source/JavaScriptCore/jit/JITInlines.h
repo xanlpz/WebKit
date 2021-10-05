@@ -332,7 +332,8 @@ ALWAYS_INLINE bool JIT::isOperandConstantChar(VirtualRegister src)
 #if USE(JSVALUE32_64)
 inline void JIT::emitValueProfilingSite(ValueProfile& valueProfile, JSValueRegs value)
 {
-    ASSERT(shouldEmitProfiling());
+    if (!shouldEmitProfiling())
+        return;
 
     EncodedValueDescriptor* descriptor = bitwise_cast<EncodedValueDescriptor*>(valueProfile.m_buckets);
     store32(value.payloadGPR(), &descriptor->asBits.payload);
