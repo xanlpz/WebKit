@@ -162,8 +162,8 @@ public:
 
     static bool useDataIC(JITType jitType)
     {
-        if (JITCode::isBaselineCode(jitType))
-            return true;
+//        if (JITCode::isBaselineCode(jitType))
+//            return true;
         if (!Options::useDataIC())
             return false;
         return Options::useDataICInOptimizingJIT();
