@@ -369,9 +369,8 @@ inline void JIT::emitValueProfilingSite(const Bytecode& bytecode, JSValueRegs va
     ptrdiff_t offset = m_unlinkedCodeBlock->metadata().offsetInMetadataTable(bytecode) + valueProfileOffsetFor<Bytecode>(m_bytecodeIndex.checkpoint()) + ValueProfile::offsetOfFirstBucket();
     store64(value.gpr(), Address(s_metadataGPR, offset));
 #else
-    UNUSED_PARAM(value);
-    UNUSED_PARAM(bytecode);
-    // FIXME.
+    ptrdiff_t offset = m_profiledCodeBlock->offsetInMetadataTable(&metadata) + valueProfileOffsetFor<Bytecode>(m_bytecodeIndex.checkpoint()) + ValueProfile::offsetOfFirstBucket();
+    store32(value.gpr(), Address(s_metadataGPR, offset));
 #endif
 }
 
