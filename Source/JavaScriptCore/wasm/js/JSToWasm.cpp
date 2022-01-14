@@ -303,7 +303,7 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
         }
     }
 
-#if GIGACAGE_ENABLED
+#if !CPU(ARM) // ARM has no pinned registers for Wasm Memory, so no need to set them up
     if (!!info.memory) {
         GPRReg baseMemory = pinnedRegs.baseMemoryPointer;
         GPRReg size = wasmCallingConvention().prologueScratchGPRs[0];
@@ -326,6 +326,7 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
         jit.cageConditionallyAndUntag(Gigacage::Primitive, baseMemory, size, scratch);
     }
 #endif
+
     CCallHelpers::Call call = jit.threadSafePatchableNearCall();
     unsigned functionIndexSpace = functionIndex + info.importFunctionCount();
     ASSERT(functionIndexSpace < info.functionIndexSpaceSize());

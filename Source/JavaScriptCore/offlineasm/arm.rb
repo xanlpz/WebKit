@@ -302,16 +302,25 @@ class Sequence
         result = armLowerLabelReferences(result)
         result = riscLowerMalformedAddresses(result) {
             | node, address |
-            if address.is_a? BaseIndex
-                address.offset.value == 0
-            elsif address.is_a? Address
-                (-0xff..0xfff).include? address.offset.value
+            case node.opcode
+            when "load2ia", "store2ia"
+                if address.is_a? Address
+                    (address.offset.value % 4 == 0) && ((-1023..1023).include? address.offset.value)
+                else
+                    false
+                end
             else
-                false
+                if address.is_a? BaseIndex
+                    address.offset.value == 0 && node.opcode
+                elsif address.is_a? Address
+                    (-0xff..0xfff).include? address.offset.value
+                else
+                    false
+                end
             end
         }
         result = riscLowerMalformedAddressesDouble(result)
-        result = riscLowerMisplacedImmediates(result, ["storeb", "storeh", "storei", "storep", "storeq"])
+        result = riscLowerMisplacedImmediates(result, ["storeb", "storeh", "storei", "storep", "storeq", "store2ia"])
         result = riscLowerMalformedImmediates(result, 0..0xff, 0..0x0ff)
         result = riscLowerMisplacedAddresses(result)
         result = riscLowerRegisterReuse(result)
@@ -328,6 +337,10 @@ end
 
 def armFlippedOperands(operands)
     armOperands([operands[-1]] + operands[0..-2])
+end
+
+def armFlippedOperandsPair(operands)
+    armOperands([operands[-2], operands[-1]] + operands[0..-3])
 end
 
 def emitArmCompact(opcode2, opcode3, operands)
@@ -466,8 +479,6 @@ class Instruction
             $asm.puts "rsbs #{operands[0].armOperand}, #{operands[0].armOperand}, \#0"
         when "noti"
             $asm.puts "mvns #{operands[0].armOperand}, #{operands[0].armOperand}"
-        when "loadi", "loadis", "loadp"
-          $asm.puts "ldr #{armFlippedOperands(operands)}"
         when "lrotatei"
             tmp = Tmp.new(codeOrigin, :gpr)
             Sequence.new(codeOrigin, [
@@ -477,8 +488,14 @@ class Instruction
             ]).lower($activeBackend)
         when "rrotatei"
             $asm.puts "ror #{armFlippedOperands(operands)}"
+        when "loadi", "loadis", "loadp"
+            $asm.puts "ldr #{armFlippedOperands(operands)}"
         when "storei", "storep"
             $asm.puts "str #{armOperands(operands)}"
+        when "load2ia"
+            $asm.puts "ldrd #{armFlippedOperandsPair(operands)}"
+        when "store2ia"
+            $asm.puts "strd #{armOperands(operands)}"
         when "loadb"
             $asm.puts "ldrb #{armFlippedOperands(operands)}"
         when "loadbsi"
@@ -719,6 +736,8 @@ class Instruction
             $asm.puts "beq #{operands[0].asmLabel}"
         when "bnz"
             $asm.puts "bne #{operands[0].asmLabel}"
+        when "bcs"
+            $asm.puts "bcs #{operands[0].asmLabel}"
         when "leai", "leap"
             operands[0].armEmitLea(operands[1])
         when "smulli"

@@ -57,8 +57,8 @@ if X86_64 or ARM64 or ARM64E
     const boundsCheckingSize = csr4
 elsif ARMv7
     const wasmInstance = csr0
-    const memoryBase = t4
-    const boundsCheckingSize = t5
+    const memoryBase = invalidGPR
+    const boundsCheckingSize = invalidGPR
 else
     error
 end
@@ -66,6 +66,8 @@ end
 // Define this elsewhere? Also for both big and little endian
 const HiOffset = 0
 const LoOffset = 4
+const MswOffset = 4
+const LswOffset = 0
 
 # This must match the definition in LowLevelInterpreter.asm
 if X86_64
@@ -295,9 +297,9 @@ end
 end
 
 macro reloadMemoryRegistersFromInstance(instance, scratch1, scratch2)
+if not ARMv7
     loadp Wasm::Instance::m_cachedMemory[instance], memoryBase
     loadp Wasm::Instance::m_cachedBoundsCheckingSize[instance], boundsCheckingSize
-if JSVALUE64
     cagedPrimitiveMayBeNull(memoryBase, boundsCheckingSize, scratch1, scratch2) # If boundsCheckingSize is 0, pointer can be a nullptr.
 end
 end
@@ -477,11 +479,10 @@ macro mloadq(ctx, field, dst)
 end
 
 if not JSVALUE64
-macro mload2i(ctx, field, dstMsw, dstLsW)
-    wgets(ctx, field, dstLsW)
-    loadConstantOrVariable(ctx, dstLsW, macro (base, index, offset)
-        loadi 4 + offset[base, index, 8], dstMsw
-        loadi 0 + offset[base, index, 8], dstLsW
+macro mload2i(ctx, field, dstMsw, dstLsw)
+    wgets(ctx, field, dstLsw)
+    loadConstantOrVariable(ctx, dstLsw, macro (base, index, offset)
+        load2ia offset[base, index, 8], dstLsw, dstMsw
     end)
 end
 end
@@ -516,6 +517,16 @@ end
 
 # Typed returns
 
+macro returnp(ctx, value)
+    wgets(ctx, m_dst, t5)
+if JSVALUE64
+    storeq value, [cfr, t5, 8]
+else
+    store2ia value, 0, [cfr, t5, 8]
+end
+    dispatch(ctx)
+end
+
 macro returnq(ctx, value)
     crashOn32BitPlatforms() # FIXME
     wgets(ctx, m_dst, t5)
@@ -526,9 +537,7 @@ end
 if not JSVALUE64
 macro return2i(ctx, msw, lsw)
     wgets(ctx, m_dst, t5)
-    # FIXIME: Big-endian?
-    storei msw, 4[cfr, t5, 8]
-    storei lsw, 0[cfr, t5, 8]
+    store2ia lsw, msw, [cfr, t5, 8]
     dispatch(ctx)
 end
 end
@@ -892,7 +901,7 @@ end
             reloadMemoryRegistersFromInstance(targetWasmInstance, wa0, wa1)
 
             # Load registers from stack
-            forEachArgumentGPR(macro (offset, gpr)
+            forEachArgumentGPR(macro (offset, gpr) # FIXME: does not look right on 32-bit
                 loadq CallFrameHeaderSize + 8 + offset[sp, ws1, 8], gpr
             end)
 
@@ -938,7 +947,11 @@ end
 
             # We need to set PC to load information from the instruction stream, but we
             # need to preserve its current value since it might contain a return value
+if ARMv7
+            push PC
+else
             move PC, memoryBase
+end
             move PB, wasmInstance
             loadi ArgumentCountIncludingThis + TagOffset[cfr], PC
             loadp CodeBlock[cfr], PB
@@ -955,7 +968,11 @@ end
             # Argument registers are also return registers, so they must be stored to the stack
             # in case they contain return values.
             wgetu(ctx, m_numberOfStackArgs, ws0)
+if ARMv7
+            pop PC
+else
             move memoryBase, PC
+end
             forEachArgumentGPR(macro (offset, gpr)
                 storeq gpr, CallFrameHeaderSize + 8 + offset[ws1, ws0, 8]
             end)
@@ -1010,8 +1027,8 @@ wasmOp(current_memory, WasmCurrentMemory, macro(ctx)
     loadp Wasm::Instance::m_memory[wasmInstance], t0
     loadp Wasm::Memory::m_handle[t0], t0
     loadp Wasm::MemoryHandle::m_size[t0], t0
-    urshiftq 16, t0
-    returnq(ctx, t0)
+    urshiftp 16, t0
+    returnp(ctx, t0)
 end)
 
 wasmOp(select, WasmSelect, macro(ctx)
@@ -1024,16 +1041,10 @@ wasmOp(select, WasmSelect, macro(ctx)
     returnq(ctx, t0)
 end)
 
-# uses offset as scratch and returns result on pointer
-macro emitCheckAndPreparePointer(ctx, pointer, offset, size)
-    leap size - 1[pointer, offset], t5
-    bpb t5, boundsCheckingSize, .continuation
-    throwException(OutOfBoundsMemoryAccess)
-.continuation:
-    addp memoryBase, pointer
-end
-
 macro emitCheckAndPreparePointerAddingOffset(ctx, pointer, offset, size)
+if ARMv7
+    crash() # FIXME: no pinned registers
+else
     leap size - 1[pointer, offset], t5
     bpb t5, boundsCheckingSize, .continuation
 .throw:
@@ -1042,8 +1053,12 @@ macro emitCheckAndPreparePointerAddingOffset(ctx, pointer, offset, size)
     addp memoryBase, pointer
     addp offset, pointer
 end
+end
 
 macro emitCheckAndPreparePointerAddingOffsetWithAlignmentCheck(ctx, pointer, offset, size)
+if ARMv7
+    crash() # FIXME: no pinned registers
+else
     leap size - 1[pointer, offset], t5
     bpb t5, boundsCheckingSize, .continuation
 .throw:
@@ -1053,43 +1068,7 @@ macro emitCheckAndPreparePointerAddingOffsetWithAlignmentCheck(ctx, pointer, off
     addp offset, pointer
     btpnz pointer, (size - 1), .throw
 end
-
-macro wasmLoadOp(name, struct, size, fn)
-    wasmOp(name, struct, macro(ctx)
-        mloadi(ctx, m_pointer, t0)
-        wgetu(ctx, m_offset, t1)
-        emitCheckAndPreparePointer(ctx, t0, t1, size)
-        fn([t0, t1], t2)
-        returnq(ctx, t2)
-    end)
 end
-
-wasmLoadOp(load8_u, WasmLoad8U, 1, macro(mem, dst) loadb mem, dst end)
-wasmLoadOp(load16_u, WasmLoad16U, 2, macro(mem, dst) loadh mem, dst end)
-wasmLoadOp(load32_u, WasmLoad32U, 4, macro(mem, dst) loadi mem, dst end)
-wasmLoadOp(load64_u, WasmLoad64U, 8, macro(mem, dst) loadq mem, dst end)
-
-wasmLoadOp(i32_load8_s, WasmI32Load8S, 1, macro(mem, dst) loadbsi mem, dst end)
-wasmLoadOp(i64_load8_s, WasmI64Load8S, 1, macro(mem, dst) loadbsq mem, dst end)
-wasmLoadOp(i32_load16_s, WasmI32Load16S, 2, macro(mem, dst) loadhsi mem, dst end)
-wasmLoadOp(i64_load16_s, WasmI64Load16S, 2, macro(mem, dst) loadhsq mem, dst end)
-wasmLoadOp(i64_load32_s, WasmI64Load32S, 4, macro(mem, dst) loadis mem, dst end)
-
-macro wasmStoreOp(name, struct, size, fn)
-    wasmOp(name, struct, macro(ctx)
-        mloadi(ctx, m_pointer, t0)
-        wgetu(ctx, m_offset, t1)
-        emitCheckAndPreparePointer(ctx, t0, t1, size)
-        mloadq(ctx, m_value, t2)
-        fn(t2, [t0, t1])
-        dispatch(ctx)
-    end)
-end
-
-wasmStoreOp(store8, WasmStore8, 1, macro(value, mem) storeb value, mem end)
-wasmStoreOp(store16, WasmStore16, 2, macro(value, mem) storeh value, mem end)
-wasmStoreOp(store32, WasmStore32, 4, macro(value, mem) storei value, mem end)
-wasmStoreOp(store64, WasmStore64, 8, macro(value, mem) storeq value, mem end)
 
 # Opcodes that don't have the `b3op` entry in wasm.json. This should be kept in sync
 
