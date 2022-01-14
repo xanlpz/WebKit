@@ -955,7 +955,12 @@ class Instruction < Node
             $asm.puts "#{str}"
         when "tagCodePtr", "tagReturnAddress", "untagReturnAddress", "removeCodePtrTag", "untagArrayPtr", "removeArrayPtrTag"
         else
-            $stderr.print "Unhandled opcode #{opcode} at #{codeOriginString}\n"
+            if $activeBackend == "ARMv7"
+                $stderr.print "Unhandled opcode #{opcode} at #{codeOriginString}\n"
+                $asm.puts "bkpt #255"
+            else
+                raise "Unhandled opcode #{opcode} at #{codeOriginString}" 
+            end
         end
     end
 
