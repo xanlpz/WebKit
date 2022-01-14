@@ -45,10 +45,10 @@ const PinnedRegisterInfo& PinnedRegisterInfo::get()
         GPRReg baseMemoryPointer = GPRInfo::regCS3;
         GPRReg boundsCheckingSizeRegister = GPRInfo::regCS4;
 #elif CPU(ARM)
-//        GPRReg baseMemoryPointer = GPRInfo::regT4; // FIXME: see WebAssembly.asm, can't use csr1 because it's saved for PB.
-//        GPRReg boundsCheckingSizeRegister = GPRInfo::regT5; // FIXME: This is a callee-saved register, so it might work.
-        GPRReg baseMemoryPointer = GPRInfo::regCS1;
-        GPRReg boundsCheckingSizeRegister = GPRInfo::regCS1;
+        // Not enough registers. regCS0 is the wasm instance, regCS1 is LLInt PB
+        numberOfPinnedRegisters -= 2;
+        GPRReg baseMemoryPointer = InvalidGPRReg;
+        GPRReg boundsCheckingSizeRegister = InvalidGPRReg;
 #endif
         GPRReg wasmContextInstancePointer = InvalidGPRReg;
         if (!Context::useFastTLS())
