@@ -59,6 +59,7 @@ MACRO_INSTRUCTIONS =
      "rrotateq",
      "subi",
      "xori",
+     "load2ia",
      "loadi",
      "loadis",
      "loadb",
@@ -67,6 +68,7 @@ MACRO_INSTRUCTIONS =
      "loadh",
      "loadhsi",
      "loadhsq",
+     "store2ia",
      "storei",
      "storeh",
      "storeb",
@@ -379,7 +381,8 @@ ARM_INSTRUCTIONS =
     [
      "clrbp",
      "mvlbl",
-     "globaladdr"
+     "globaladdr",
+     "bcs"
     ]
 
 ARM64_INSTRUCTIONS =

@@ -41,6 +41,102 @@ wasmOp(mov, WasmMov, macro(ctx)
     return2i(ctx, t1, t0)
 end)
 
+# Wasm specific bytecodes
+
+macro emitCheckAndPreparePointer(pointer, offset, size)
+    # This macro updates 'pointer' to target address, and may thrash 'offset'
+if ARMv7
+    # Not enough registers on arm to keep the memory base and size in pinned
+    # registers, so load them on each access instead. FIXME: improve this.
+    addps offset, pointer
+    bcs .throw
+    addps size - 1, pointer, offset # Use offset as scratch register
+    bcs .throw
+    bpb offset, Wasm::Instance::m_cachedBoundsCheckingSize[wasmInstance], .continuation
+.throw:
+    throwException(OutOfBoundsMemoryAccess)
+.continuation:
+    addp Wasm::Instance::m_cachedMemory[wasmInstance], pointer
+else
+    crash()
+end
+end
+
+macro wasmLoadOp(name, struct, size, fn)
+    wasmOp(name, struct, macro(ctx)
+        mloadi(ctx, m_pointer, t0)
+        wgetu(ctx, m_offset, t1)
+        emitCheckAndPreparePointer(t0, t1, size)
+        fn(t0, t3, t2)
+        return2i(ctx, t3, t2)
+    end)
+end
+
+wasmLoadOp(load8_u, WasmLoad8U, 1, macro(addr, dstMsw, dstLsw)
+    loadb LswOffset[addr], dstLsw
+    move 0, dstMsw
+end)
+wasmLoadOp(load16_u, WasmLoad16U, 2, macro(addr, dstMsw, dstLsw)
+    loadh LswOffset[addr], dstLsw
+    move 0, dstMsw
+end)
+wasmLoadOp(load32_u, WasmLoad32U, 4, macro(addr, dstMsw, dstLsw)
+    loadi LswOffset[addr], dstLsw
+    move 0, dstMsw
+end)
+wasmLoadOp(load64_u, WasmLoad64U, 8, macro(addr, dstMsw, dstLsw)
+    # Might be unaligned, so can't use load2ia
+    loadi LswOffset[addr], dstLsw
+    loadi MswOffset[addr], dstMsw
+end)
+
+wasmLoadOp(i32_load8_s, WasmI32Load8S, 1, macro(addr, dstMsw, dstLsw)
+    loadbsi LswOffset[addr], dstLsw
+    move 0, dstMsw
+end)
+wasmLoadOp(i32_load16_s, WasmI32Load16S, 2, macro(addr, dstMsw, dstLsw)
+    loadhsi LswOffset[addr], dstLsw
+    move 0, dstMsw
+end)
+wasmLoadOp(i64_load8_s, WasmI64Load8S, 1, macro(addr, dstMsw, dstLsw)
+    loadbsi LswOffset[addr], dstLsw
+    rshifti dstLsw, 31, dstMsw
+end)
+wasmLoadOp(i64_load16_s, WasmI64Load16S, 2, macro(addr, dstMsw, dstLsw)
+    loadhsi LswOffset[addr], dstLsw
+    rshifti dstLsw, 31, dstMsw
+end)
+wasmLoadOp(i64_load32_s, WasmI64Load32S, 4, macro(addr, dstMsw, dstLsw)
+    loadi LswOffset[addr], dstLsw
+    rshifti dstLsw, 31, dstMsw
+end)
+
+macro wasmStoreOp(name, struct, size, fn)
+    wasmOp(name, struct, macro(ctx)
+        mloadi(ctx, m_pointer, t0)
+        wgetu(ctx, m_offset, t1)
+        emitCheckAndPreparePointer(t0, t1, size)
+        mload2i(ctx, m_value, t3, t2)
+        fn(t3, t2, t0)
+        dispatch(ctx)
+    end)
+end
+
+wasmStoreOp(store8, WasmStore8, 1, macro(srcMsw, srcLsw, addr)
+    storeb srcLsw, LswOffset[addr]
+end)
+wasmStoreOp(store16, WasmStore16, 2, macro(srcMsw, srcLsw, addr)
+    storeh srcLsw, LswOffset[addr]
+end)
+wasmStoreOp(store32, WasmStore32, 4, macro(srcMsw, srcLsw, addr)
+    storei srcLsw, LswOffset[addr]
+end)
+wasmStoreOp(store64, WasmStore64, 8, macro(srcMsw, srcLsw, addr)
+    # Might be unaligned, so can't use store2ia
+    storei srcLsw, LswOffset[addr]
+    storei srcMsw, MswOffset[addr]
+end)
+
 # Opcodes that don't have the `b3op` entry in wasm.json. This should be kept in sync
 
 wasmOp(i64_popcnt, WasmI64Popcnt, macro (ctx)
