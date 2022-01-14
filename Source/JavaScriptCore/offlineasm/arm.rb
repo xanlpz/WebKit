@@ -100,14 +100,16 @@ class RegisterID
             "r1"
         when "t2", "a2", "wa2"
             "r2"
-        when "a3", "wa3"
+        when "t3", "a3", "wa3"
             "r3"
-        when "t3"
-            "r3"
-        when "t4"
+        when "t4" # LLInt PC
             "r8"
-        when "t5"
+        when "t5", "ws0" # ws0 must be a non-argument/non-return GPR
             "r9"
+        when "t6", "ws1" # ws1 must be a non-argument/non-return GPR
+            "r5"
+        when "t7"
+            "r4"
         when "cfr"
             "r7"
         when "csr0"
@@ -120,11 +122,6 @@ class RegisterID
             "sp"
         when "pc"
             "pc"
-        #FIXME: this is probably wrong, figure out right registers.
-        when "ws0", "t6"  #FIXME: t6
-            "r2"
-        when "ws1"
-            "r3"
         else
             raise "Bad register #{name} for ARM at #{codeOriginString}"
         end
@@ -416,7 +413,7 @@ class Instruction
 
     def lowerARMCommon
         case opcode
-        when "addi", "addp", "addis", "addps", "addq" #FIXME: addq
+        when "addi", "addp", "addis", "addps"
             if opcode == "addis" or opcode == "addps"
                 suffix = "s"
             else
@@ -447,31 +444,29 @@ class Instruction
             end
         when "absd"
           $asm.puts "vabs.f64 #{armFlippedOperands(operands)}"
-        when "andi", "andp", "andq" #FIXME: andq
+        when "andi", "andp"
             emitArmCompact("ands", "and", operands)
-        when "ori", "orp", "orh", "orq" #FIXME: orq
+        when "ori", "orp", "orh"
             emitArmCompact("orrs", "orr", operands)
         when "oris"
             emitArmCompact("orrs", "orrs", operands)
-        when "xori", "xorp", "xorq" #FIXME: xorq
+        when "xori", "xorp"
             emitArmCompact("eors", "eor", operands)
         when "lshifti", "lshiftp"
             emitArmCompact("lsls", "lsls", operands)
         when "rshifti", "rshiftp"
             emitArmCompact("asrs", "asrs", operands)
-        when "urshifti", "urshiftp", "urshiftq" #FIXME: urshiftq
+        when "urshifti", "urshiftp"
             emitArmCompact("lsrs", "lsrs", operands)
         when "muli", "mulp"
             emitArm("mul", operands)
-        when "subi", "subp", "subis", "subq" #FIXME: subq
+        when "subi", "subp", "subis"
           emitArmCompact("subs", "subs", operands)
         when "negi", "negp"
             $asm.puts "rsbs #{operands[0].armOperand}, #{operands[0].armOperand}, \#0"
         when "noti"
             $asm.puts "mvns #{operands[0].armOperand}, #{operands[0].armOperand}"
         when "loadi", "loadis", "loadp"
-          $asm.puts "ldr #{armFlippedOperands(operands)}"
-        when "loadq" #FIXME: loadq?
           $asm.puts "ldr #{armFlippedOperands(operands)}"
         when "lrotatei"
             tmp = Tmp.new(codeOrigin, :gpr)
@@ -482,28 +477,20 @@ class Instruction
             ]).lower($activeBackend)
         when "rrotatei"
             $asm.puts "ror #{armFlippedOperands(operands)}"
-        when "storei", "storep", "storeq" #FIXME: storeq is wrong here?
+        when "storei", "storep"
             $asm.puts "str #{armOperands(operands)}"
         when "loadb"
             $asm.puts "ldrb #{armFlippedOperands(operands)}"
-        when "loadbsi", "loadbsq" #FIXME: loadbsq
+        when "loadbsi"
             $asm.puts "ldrsb.w #{armFlippedOperands(operands)}"
         when "storeb"
             $asm.puts "strb #{armOperands(operands)}"
         when "loadh"
             $asm.puts "ldrh #{armFlippedOperands(operands)}"
-        when "loadhsi", "loadhsq" #FIXME: loadhsq
+        when "loadhsi"
             $asm.puts "ldrsh.w #{armFlippedOperands(operands)}"
         when "storeh"
             $asm.puts "strh #{armOperands(operands)}"
-        when "truncatef", "roundf" #FIXME: obviously not ok
-            $asm.puts "nop"
-        when "cqeq"
-            $asm.puts "nop"
-        when "tzcnti", "bqneq", "bqeq", "tzcntq"
-            $asm.puts "bkpt #0"
-        when "sxi2q"
-            $asm.puts "nop"
         when "loadd"
             $asm.puts "vldr.64 #{armFlippedOperands(operands)}"
         when "stored"
@@ -653,10 +640,10 @@ class Instruction
         when "bilteq", "bplteq", "bblteq"
             $asm.puts "cmp #{armOperands(operands[0..1])}"
             $asm.puts "ble #{operands[2].asmLabel}"
-        when "btiz", "btpz", "btbz", "btqz" #FIXME: btqz
+        when "btiz", "btpz", "btbz"
             emitArmTest(operands)
             $asm.puts "beq #{operands[-1].asmLabel}"
-        when "btinz", "btpnz", "btbnz", "btqnz" #FIXME: btqnz
+        when "btinz", "btpnz", "btbnz"
             emitArmTest(operands)
             $asm.puts "bne #{operands[-1].asmLabel}"
         when "btis", "btps", "btbs"
