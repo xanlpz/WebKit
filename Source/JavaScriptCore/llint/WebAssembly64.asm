@@ -29,6 +29,53 @@ wasmOp(mov, WasmMov, macro(ctx)
     returnq(ctx, t0)
 end)
 
+# Wasm specific bytecodes
+
+macro emitCheckAndPreparePointer(ctx, pointer, offset, size)
+    leap size - 1[pointer, offset], t5
+    bpb t5, boundsCheckingSize, .continuation
+    throwException(OutOfBoundsMemoryAccess)
+.continuation:
+    addp memoryBase, pointer
+end
+
+macro wasmLoadOp(name, struct, size, fn)
+    wasmOp(name, struct, macro(ctx)
+        mloadi(ctx, m_pointer, t0)
+        wgetu(ctx, m_offset, t1)
+        emitCheckAndPreparePointer(ctx, t0, t1, size)
+        fn([t0, t1], t2)
+        returnq(ctx, t2)
+    end)
+end
+
+wasmLoadOp(load8_u, WasmLoad8U, 1, macro(mem, dst) loadb mem, dst end)
+wasmLoadOp(load16_u, WasmLoad16U, 2, macro(mem, dst) loadh mem, dst end)
+wasmLoadOp(load32_u, WasmLoad32U, 4, macro(mem, dst) loadi mem, dst end)
+wasmLoadOp(load64_u, WasmLoad64U, 8, macro(mem, dst) loadq mem, dst end)
+
+wasmLoadOp(i32_load8_s, WasmI32Load8S, 1, macro(mem, dst) loadbsi mem, dst end)
+wasmLoadOp(i64_load8_s, WasmI64Load8S, 1, macro(mem, dst) loadbsq mem, dst end)
+wasmLoadOp(i32_load16_s, WasmI32Load16S, 2, macro(mem, dst) loadhsi mem, dst end)
+wasmLoadOp(i64_load16_s, WasmI64Load16S, 2, macro(mem, dst) loadhsq mem, dst end)
+wasmLoadOp(i64_load32_s, WasmI64Load32S, 4, macro(mem, dst) loadis mem, dst end)
+
+macro wasmStoreOp(name, struct, size, fn)
+    wasmOp(name, struct, macro(ctx)
+        mloadi(ctx, m_pointer, t0)
+        wgetu(ctx, m_offset, t1)
+        emitCheckAndPreparePointer(ctx, t0, t1, size)
+        mloadq(ctx, m_value, t2)
+        fn(t2, [t0, t1])
+        dispatch(ctx)
+    end)
+end
+
+wasmStoreOp(store8, WasmStore8, 1, macro(value, mem) storeb value, mem end)
+wasmStoreOp(store16, WasmStore16, 2, macro(value, mem) storeh value, mem end)
+wasmStoreOp(store32, WasmStore32, 4, macro(value, mem) storei value, mem end)
+wasmStoreOp(store64, WasmStore64, 8, macro(value, mem) storeq value, mem end)
+
 # Opcodes that don't have the `b3op` entry in wasm.json. This should be kept in sync
 
 wasmOp(i64_popcnt, WasmI64Popcnt, macro (ctx)

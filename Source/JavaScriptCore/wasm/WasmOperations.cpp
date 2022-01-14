@@ -604,8 +604,10 @@ JSC_DEFINE_JIT_OPERATION(operationAllocateResultsArray, JSArray*, (CallFrame* ca
     auto wasmCallInfo = wasmCallingConvention().callInformationFor(*signature);
     RegisterAtOffsetList registerResults = wasmCallInfo.computeResultsOffsetList();
 
-#if USE(JSVALUE64) //FIXME: for 32bit
+#if USE(JSVALUE64)
     static_assert(sizeof(JSValue) == sizeof(CPURegister), "The code below relies on this.");
+#else
+    UNREACHABLE_FOR_PLATFORM();  //FIXME: for 32bit
 #endif
     for (unsigned i = 0; i < signature->returnCount(); ++i) {
         ValueLocation loc = wasmCallInfo.results[i];
@@ -946,9 +948,8 @@ JSC_DEFINE_JIT_OPERATION(operationWasmThrow, void*, (Instance* instance, CallFra
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
-#if USE(JSVALUE64)
-    bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
-#endif
+    Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
+    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(jsInstance->module());
     return vm.targetMachinePCForThrow;
 }
 
@@ -974,9 +975,8 @@ JSC_DEFINE_JIT_OPERATION(operationWasmRethrow, void*, (Instance* instance, CallF
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
-#if USE(JSVALUE64)    
-    bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
-#endif
+    Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
+    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(jsInstance->module());
     return vm.targetMachinePCForThrow;
 }
 
@@ -1011,9 +1011,8 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSException, void*, (CallFrame* callFram
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
-#if USE(JSVALUE64)
-    bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
-#endif
+    Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
+    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(instance->module());
     return vm.targetMachinePCForThrow;
 }
 
@@ -1040,6 +1039,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmRetrieveAndClearExceptionIfCatchable, Poin
 #if USE(JSVALUE64) //FIXME
     return PointerPair { bitwise_cast<void*>(JSValue::encode(thrownValue)), payload };
 #else
+    UNREACHABLE_FOR_PLATFORM(); // TODO
     return PointerPair { nullptr, payload };
 #endif
 }

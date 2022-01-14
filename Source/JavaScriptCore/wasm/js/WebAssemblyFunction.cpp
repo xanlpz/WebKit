@@ -398,7 +398,6 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         jit.loadPtr(vm.addressOfSoftStackLimit(), stackLimitGPR);
     jit.storePtr(stackLimitGPR, CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedStackLimit()));
 
-#if GIGACAGE_ENABLED
     if (!!moduleInformation.memory) {
         GPRReg baseMemory = pinnedRegs.baseMemoryPointer;
         GPRReg scratchOrBoundsCheckingSize = InvalidGPRReg;
@@ -418,7 +417,6 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         jit.loadPtr(CCallHelpers::Address(scratchGPR, Wasm::Instance::offsetOfCachedMemory()), baseMemory);
         jit.cageConditionallyAndUntag(Gigacage::Primitive, baseMemory, scratchOrBoundsCheckingSize, scratchGPR);
     }
-#endif
 
     // We use this callee to indicate how to unwind past these types of frames:
     // 1. We need to know where to get callee saves.
