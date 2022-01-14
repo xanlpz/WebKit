@@ -71,7 +71,7 @@ const WasmCallingConvention& wasmCallingConvention()
         Vector<GPRReg> scratchGPRs;
         for (Reg reg : scratch)
             scratchGPRs.append(reg.gpr());
-        //RELEASE_ASSERT(scratchGPRs.size() >= 2);
+        //RELEASE_ASSERT(scratchGPRs.size() >= 2); FIXME: this is empty on ARMv7 right now
 
         RegisterSet callerSaveRegisters = RegisterSet::allRegisters();
         callerSaveRegisters.exclude(RegisterSet::calleeSaveRegisters());
