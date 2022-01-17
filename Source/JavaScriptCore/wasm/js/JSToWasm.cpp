@@ -282,6 +282,8 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
 #if USE(JSVALUE64) //FIXME: for 32bit
                     jit.load64(jsParam, scratchReg);
                     jit.store64(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
+#else
+                    ASSERT_NOT_REACHED();
 #endif
                 }
             } else {
