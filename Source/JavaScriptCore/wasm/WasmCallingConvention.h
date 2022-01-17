@@ -219,12 +219,33 @@ private:
         return result;
     }
 
+#if USE(JSVALUE32_64)
+    ArgumentLocation marshallLocationImpl32(CallRole role, const Vector<Reg>& regArgs, size_t& count, size_t& stackOffset) const
+    {
+        // We need two registers for a 64bit value.
+        if (count + 1 < regArgs.size()) {
+            uint first = count;
+            uint second = count + 1;
+            count += 2;
+            return ArgumentLocation(regArgs[first], regArgs[second]);
+        }
+
+        count+=2;
+        ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
+        stackOffset += sizeof(Register) * 2;
+        return result;
+    }
+#endif
+
     ArgumentLocation marshallLocation(CallRole role, Type valueType, size_t& gpArgumentCount, size_t& fpArgumentCount, size_t& stackOffset) const
     {
         ASSERT(isValueType(valueType));
         switch (valueType.kind) {
         case TypeKind::I32:
         case TypeKind::I64:
+#if USE(JSVALUE32_64)
+            return marshallLocationImpl32(role, gprArgs, gpArgumentCount, stackOffset);
+#endif
         case TypeKind::Funcref:
         case TypeKind::Externref:
         case TypeKind::Ref:
