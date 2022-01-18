@@ -121,8 +121,10 @@ private:
             return ArgumentLocation(regArgs[first], regArgs[second]);
         }
 
-        ASSERT_NOT_REACHED();
-        // FIXME: stack arguments.
+        count+=2;
+        ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
+        stackOffset += sizeof(Register) * 2;
+        return result;
     }
 #endif
 
@@ -241,11 +243,11 @@ private:
     {
         ASSERT(isValueType(valueType));
         switch (valueType.kind) {
-        case TypeKind::I32:
         case TypeKind::I64:
 #if USE(JSVALUE32_64)
             return marshallLocationImpl32(role, gprArgs, gpArgumentCount, stackOffset);
 #endif
+        case TypeKind::I32:
         case TypeKind::Funcref:
         case TypeKind::Externref:
         case TypeKind::Ref:
