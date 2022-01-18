@@ -25,11 +25,9 @@
 # - Working on instruction coverage, i32/f32 by far the most complete
 # - andf/orf need implementation for f32.{max,min} to work with equal values
 # - One return value.
-# - Arguments should be almost there.
 # - TODO:
 #       Support all ops
 #       multiple return values
-#       tagging on the stack for exception handling/others
 #       not enough scratch gpr registers (see WasmCallingConvention)
 #       stack arguments
 #       WasmMemory size does not fit on 32bit integer
