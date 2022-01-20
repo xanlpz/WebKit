@@ -139,6 +139,509 @@ end)
 
 # Opcodes that don't have the `b3op` entry in wasm.json. This should be kept in sync
 
+macro callDivRem(fn)
+if ARMv7
+    subp StackAlignment, sp
+    storep PC, [sp]
+    cCall4(fn)
+    loadp [sp], PC
+    addp StackAlignment, sp
+else
+    error
+end
+end
+
+# i32 binary ops
+
+wasmOp(i32_div_s, WasmI32DivS, macro (ctx)
+    mloadi(ctx, m_lhs, a0)
+    mloadi(ctx, m_rhs, a1)
+
+    btiz a1, .throwDivisionByZero
+
+    bineq a1, -1, .safe
+    bieq a0, constexpr INT32_MIN, .throwIntegerOverflow
+
+.safe:
+    callDivRem(_slow_path_wasm_i32_div_s)
+    returni(ctx, r0)
+
+.throwDivisionByZero:
+    throwException(DivisionByZero)
+
+.throwIntegerOverflow:
+    throwException(IntegerOverflow)
+end)
+
+wasmOp(i32_div_u, WasmI32DivU, macro (ctx)
+    mloadi(ctx, m_lhs, a0)
+    mloadi(ctx, m_rhs, a1)
+
+    btiz a1, .throwDivisionByZero
+
+    callDivRem(_slow_path_wasm_i32_div_u)
+    returni(ctx, r0)
+
+.throwDivisionByZero:
+    throwException(DivisionByZero)
+end)
+
+wasmOp(i32_rem_s, WasmI32RemS, macro (ctx)
+    mloadi(ctx, m_lhs, a0)
+    mloadi(ctx, m_rhs, a1)
+
+    btiz a1, .throwDivisionByZero
+
+    bineq a1, -1, .safe
+    bineq a0, constexpr INT32_MIN, .safe
+
+    move 0, r0
+    jmp .return
+
+.safe:
+    callDivRem(_slow_path_wasm_i32_rem_s)
+
+.return:
+    returni(ctx, r0)
+
+.throwDivisionByZero:
+    throwException(DivisionByZero)
+end)
+
+wasmOp(i32_rem_u, WasmI32RemU, macro (ctx)
+    mloadi(ctx, m_lhs, a0)
+    mloadi(ctx, m_rhs, a1)
+
+    btiz a1, .throwDivisionByZero
+
+    callDivRem(_slow_path_wasm_i32_rem_u)
+    returni(ctx, r0)
+
+.throwDivisionByZero:
+    throwException(DivisionByZero)
+end)
+
+# i64 binary ops
+
+wasmOp(i64_add, WasmI64Add, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    addis t2, t0
+    adci  t3, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_sub, WasmI64Sub, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    subis t2, t0
+    sbci  t3, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_mul, WasmI64Mul, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    muli t2, t1
+    muli t0, t3
+    umulli t0, t2, t0, t2
+    addi t1, t2
+    addi t3, t2
+    return2i(ctx, t2, t0)
+end)
+
+wasmOp(i64_div_s, WasmI64DivS, macro (ctx)
+    mload2i(ctx, m_lhs, a1, a0)
+    mload2i(ctx, m_rhs, a3, a2)
+
+    btinz a3, .nonZeroDivisor
+    btiz a2, .throwDivisionByZero
+
+.nonZeroDivisor:
+    bineq a3, -1, .safe
+    bineq a2, -1, .safe
+    bineq a1, constexpr INT32_MIN, .safe
+    btiz a0, .throwIntegerOverflow
+
+.safe:
+    callDivRem(_slow_path_wasm_i64_div_s)
+    return2i(ctx, r1, r0)
+
+.throwDivisionByZero:
+    throwException(DivisionByZero)
+
+.throwIntegerOverflow:
+    throwException(IntegerOverflow)
+end)
+
+wasmOp(i64_div_u, WasmI64DivU, macro (ctx)
+    mload2i(ctx, m_lhs, a1, a0)
+    mload2i(ctx, m_rhs, a3, a2)
+
+    btinz a3, .nonZeroDivisor
+    btiz a2, .throwDivisionByZero
+
+.nonZeroDivisor:
+    callDivRem(_slow_path_wasm_i64_div_u)
+    return2i(ctx, r1, r0)
+
+.throwDivisionByZero:
+    throwException(DivisionByZero)
+end)
+
+wasmOp(i64_rem_s, WasmI64RemS, macro (ctx)
+    mload2i(ctx, m_lhs, a1, a0)
+    mload2i(ctx, m_rhs, a3, a2)
+
+    btinz a3, .nonZeroDivisor
+    btiz a2, .throwDivisionByZero
+
+.nonZeroDivisor:
+    bineq a3, -1, .safe
+    bineq a2, -1, .safe
+    bineq a1, constexpr INT32_MIN, .safe
+    btinz a0, .safe
+
+    move 0, r1
+    move 0, r0
+    jmp .return
+
+.safe:
+    callDivRem(_slow_path_wasm_i64_rem_s)
+
+.return:
+    return2i(ctx, r1, r0)
+
+.throwDivisionByZero:
+    throwException(DivisionByZero)
+end)
+
+wasmOp(i64_rem_u, WasmI64RemU, macro (ctx)
+    mload2i(ctx, m_lhs, a1, a0)
+    mload2i(ctx, m_rhs, a3, a2)
+
+    btinz a3, .nonZeroDivisor
+    btiz a2, .throwDivisionByZero
+
+.nonZeroDivisor:
+    callDivRem(_slow_path_wasm_i64_rem_u)
+    return2i(ctx, r1, r0)
+
+.throwDivisionByZero:
+    throwException(DivisionByZero)
+end)
+
+wasmOp(i64_and, WasmI64And, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    andi t2, t0
+    andi t3, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_or, WasmI64Or, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    ori t2, t0
+    ori t3, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_xor, WasmI64Xor, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    xori t2, t0
+    xori t3, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_shl, WasmI64Shl, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mloadi(ctx, m_rhs, t2)
+
+    andi 0x3f, t2
+    btiz t2, .return
+    bib t2, 32, .lessThan32
+
+    subi 32, t2
+    lshifti t0, t2, t1
+    move 0, t0
+    jmp .return
+
+.lessThan32:
+    lshifti t2, t1
+    move 32, t3
+    subi t2, t3
+    urshifti t0, t3, t3
+    ori t3, t1
+    lshifti t2, t0
+
+.return:
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_shr_u, WasmI64ShrU, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mloadi(ctx, m_rhs, t2)
+
+    andi 0x3f, t2
+    btiz t2, .return
+    bib t2, 32, .lessThan32
+
+    subi 32, t2
+    urshifti t1, t2, t0
+    move 0, t1
+    jmp .return
+
+.lessThan32:
+    urshifti t2, t0
+    move 32, t3
+    subi t2, t3
+    lshifti t1, t3, t3
+    ori t3, t0
+    urshifti t2, t1
+
+.return:
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_shr_s, WasmI64ShrS, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mloadi(ctx, m_rhs, t2)
+
+    andi 0x3f, t2
+    btiz t2, .return
+    bib t2, 32, .lessThan32
+
+    subi 32, t2
+    rshifti t1, t2, t0
+    rshifti 31, t1
+    jmp .return
+
+.lessThan32:
+    urshifti t2, t0
+    move 32, t3
+    subi t2, t3
+    lshifti t1, t3, t3
+    ori t3, t0
+    rshifti t2, t1
+
+.return:
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_rotr, WasmI64Rotr, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mloadi(ctx, m_rhs, t2)
+
+    andi t2, 0x20, t3
+    btiz t3, .noSwap
+
+    move t0, t3
+    move t1, t0
+    move t3, t1
+
+.noSwap:
+    andi 0x1f, t2
+    btiz t2, .return
+
+    move 32, t5
+    subi t2, t5
+    lshifti t0, t5, t3
+    lshifti t1, t5, t5
+    urshifti t2, t0
+    urshifti t2, t1
+    ori t5, t0
+    ori t3, t1
+
+.return:
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_rotl, WasmI64Rotl, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mloadi(ctx, m_rhs, t2)
+
+    andi t2, 0x20, t3
+    btiz t3, .noSwap
+
+    move t0, t3
+    move t1, t0
+    move t3, t1
+
+.noSwap:
+    andi 0x1f, t2
+    btiz t2, .return
+
+    move 32, t5
+    subi t2, t5
+    urshifti t0, t5, t3
+    urshifti t1, t5, t5
+    lshifti t2, t0
+    lshifti t2, t1
+    ori t5, t0
+    ori t3, t1
+
+.return:
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_eq, WasmI64Eq, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 0, t6
+    bineq t1, t3, .return
+    cieq t0, t2, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_ne, WasmI64Ne, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 1, t6
+    bineq t1, t3, .return
+    cineq t0, t2, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_lt_s, WasmI64LtS, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 1, t6
+    bilt t1, t3, .return
+    move 0, t6
+    bigt t1, t3, .return
+    cib t0, t2, t6
+    andi 1, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_le_s, WasmI64LeS, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 1, t6
+    bilt t1, t3, .return
+    move 0, t6
+    bigt t1, t3, .return
+    cibeq t0, t2, t6
+    andi 1, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_lt_u, WasmI64LtU, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 1, t6
+    bib t1, t3, .return
+    move 0, t6
+    bia t1, t3, .return
+    cib t0, t2, t6
+    andi 1, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_le_u, WasmI64LeU, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 1, t6
+    bib t1, t3, .return
+    move 0, t6
+    bia t1, t3, .return
+    cibeq t0, t2, t6
+    andi 1, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_gt_s, WasmI64GtS, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 1, t6
+    bigt t1, t3, .return
+    move 0, t6
+    bilt t1, t3, .return
+    cia t0, t2, t6
+    andi 1, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_ge_s, WasmI64GeS, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 1, t6
+    bigt t1, t3, .return
+    move 0, t6
+    bilt t1, t3, .return
+    ciaeq t0, t2, t6
+    andi 1, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_gt_u, WasmI64GtU, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 1, t6
+    bia t1, t3, .return
+    move 0, t6
+    bib t1, t3, .return
+    cia t0, t2, t6
+    andi 1, t6
+.return:
+    returni(ctx, t6)
+end)
+
+wasmOp(i64_ge_u, WasmI64GeU, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2)
+    move 0, t6
+    bib t1, t3, .return
+    move 1, t6
+    bia t1, t3, .return
+    ciaeq t0, t2, t6
+    andi 1, t6
+.return:
+    returni(ctx, t6)
+end)
+
+# i64 unary ops
+
+wasmOp(i64_ctz, WasmI64Ctz, macro (ctx)
+    mload2i(ctx, m_operand, t1, t0)
+    btiz t0, .top
+
+    tzcnti t0, t0
+    jmp .return
+
+.top:
+    tzcnti t1, t0
+    addi 32, t0
+
+.return:
+    return2i(ctx, 0, t0)
+end)
+
+wasmOp(i64_clz, WasmI64Clz, macro(ctx)
+    mload2i(ctx, m_operand, t1, t0)
+    btiz t1, .bottom
+
+    lzcnti t1, t0
+    jmp .return
+
+.bottom:
+    lzcnti t0, t0
+    addi 32, t0
+
+.return:
+    return2i(ctx, 0, t0)
+end)
+
 wasmOp(i64_popcnt, WasmI64Popcnt, macro (ctx)
     mload2i(ctx, m_operand, a3, a2)
     prepareStateForCCall()
@@ -150,19 +653,10 @@ end)
 
 wasmOp(i64_eqz, WasmI64Eqz, macro(ctx)
     mload2i(ctx, m_operand, t1, t0)
-    btinz t1, .notZero
-    cieq t0, 0, t0
-    returni(ctx, t0)
-.notZero:
-    returni(ctx, 0)
+    move 0, t2
+    btinz t1, .return
+    cieq t0, 0, t2
+.return:
+    returni(ctx, t2)
 end)
 
-wasmOp(i64_eq, WasmI64Eq, macro(ctx)
-    mload2i(ctx, m_lhs, t1, t0)
-    mload2i(ctx, m_rhs, t3, t2)
-    bineq t1, t3, .notEqual
-    cieq t0, t2, t0
-    returni(ctx, t0)
-.notEqual:
-    returni(ctx, 0)
-end)

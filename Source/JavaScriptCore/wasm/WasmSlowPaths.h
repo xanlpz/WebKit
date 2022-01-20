@@ -91,6 +91,17 @@ extern "C" SlowPathReturnType slow_path_wasm_throw_exception(CallFrame*, const I
 extern "C" SlowPathReturnType slow_path_wasm_popcount(const Instruction* pc, uint32_t) REFERENCED_FROM_ASM WTF_INTERNAL;
 extern "C" SlowPathReturnType slow_path_wasm_popcountll(const Instruction* pc, uint64_t) REFERENCED_FROM_ASM WTF_INTERNAL;
 
+#if USE(JSVALUE32_64)
+extern "C" int32_t slow_path_wasm_i32_div_s(int32_t a, int32_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" uint32_t slow_path_wasm_i32_div_u(uint32_t a, uint32_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" int32_t slow_path_wasm_i32_rem_s(int32_t a, int32_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" uint32_t slow_path_wasm_i32_rem_u(uint32_t a, uint32_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" int64_t slow_path_wasm_i64_div_s(int64_t a, int64_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" uint64_t slow_path_wasm_i64_div_u(uint64_t a, uint64_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" int64_t slow_path_wasm_i64_rem_s(int64_t a, int64_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+extern "C" uint64_t slow_path_wasm_i64_rem_u(uint64_t a, uint64_t b) REFERENCED_FROM_ASM WTF_INTERNAL;
+#endif
+
 } } // namespace JSC::LLInt
 
 #endif // ENABLE(WEBASSEMBLY)
