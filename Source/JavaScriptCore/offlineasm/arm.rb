@@ -455,6 +455,8 @@ class Instruction
                     $asm.puts "add#{suffix} #{armFlippedOperands(operands)}"
                 end
             end
+        when "adci"
+            emitArm("adc", operands)
         when "absd"
           $asm.puts "vabs.f64 #{armFlippedOperands(operands)}"
         when "andi", "andp"
@@ -474,7 +476,9 @@ class Instruction
         when "muli", "mulp"
             emitArm("mul", operands)
         when "subi", "subp", "subis"
-          emitArmCompact("subs", "subs", operands)
+            emitArmCompact("subs", "subs", operands)
+        when "sbci"
+            emitArm("sbc", operands)
         when "negi", "negp"
             $asm.puts "rsbs #{operands[0].armOperand}, #{operands[0].armOperand}, \#0"
         when "noti"
@@ -488,6 +492,11 @@ class Instruction
             ]).lower($activeBackend)
         when "rrotatei"
             $asm.puts "ror #{armFlippedOperands(operands)}"
+        when "tzcnti"
+            $asm.puts "rbit #{armFlippedOperands(operands)}"
+            $asm.puts "clz #{operands[1].armOperand}, #{operands[1].armOperand}"
+        when "lzcnti"
+            $asm.puts "clz #{armFlippedOperands(operands)}"
         when "loadi", "loadis", "loadp"
             $asm.puts "ldr #{armFlippedOperands(operands)}"
         when "storei", "storep"
@@ -540,6 +549,18 @@ class Instruction
             emitArm("vmul.f64", operands)
         when "sqrtd"
             $asm.puts "vsqrt.f64 #{armFlippedOperands(operands)}"
+        #when "roundf"
+        #    $asm.puts "vrintn.f32 #{operands[1].armSingle}, #{operands[0].armSingle}"
+        #when "roundd"
+        #    emitArm("vrintn.f64", operands)
+        #when "truncatef"
+        #    $asm.puts "vrintz.f32 #{operands[1].armSingle}, #{operands[0].armSingle}"
+        #when "truncated"
+        #    emitArm("vrintz.f64", operands)
+        #when "orf", "ord"
+        #    emitArm("vorr.f64", operands)
+        #when "andf", "andd"
+        #    emitArm("vand.f64", operands)
         when "ci2ds"
             $asm.puts "vmov #{operands[1].armSingle}, #{operands[0].armOperand}"
             $asm.puts "vcvt.f64.s32 #{operands[1].armOperand}, #{operands[1].armSingle}"
@@ -740,9 +761,9 @@ class Instruction
             $asm.puts "bcs #{operands[0].asmLabel}"
         when "leai", "leap"
             operands[0].armEmitLea(operands[1])
-        when "smulli"
+        when "smulli", "umulli"
             raise "Wrong number of arguments to smull in #{self.inspect} at #{codeOriginString}" unless operands.length == 4
-            $asm.puts "smull #{operands[2].armOperand}, #{operands[3].armOperand}, #{operands[0].armOperand}, #{operands[1].armOperand}"
+            $asm.puts "#{opcode[0..-2]} #{operands[2].armOperand}, #{operands[3].armOperand}, #{operands[0].armOperand}, #{operands[1].armOperand}"
         when "memfence"
             $asm.puts "dmb sy"
         when "clrbp"
