@@ -260,9 +260,13 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
 
         CCallHelpers::Address calleeFrame = CCallHelpers::Address(MacroAssembler::stackPointerRegister, 0);
 
+#if USE(JSVALUE64)
         // We're going to set the pinned registers after this. So
         // we can use this as a scratch for now since we saved it above.
         GPRReg scratchReg = pinnedRegs.baseMemoryPointer;
+#else
+        GPRReg scratchReg = GPRInfo::regCS1; // regCS1 is the LLInt PB, should be safe to use it just for the argument setup.
+#endif
 
         if (!Context::useFastTLS()) {
             jit.loadPtr(CCallHelpers::Address(GPRInfo::callFrameRegister, JSCallingConvention::instanceStackOffset), wasmContextInstanceGPR);
