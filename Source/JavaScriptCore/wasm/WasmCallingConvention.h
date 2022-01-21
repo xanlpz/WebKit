@@ -123,7 +123,7 @@ private:
 
         count+=2;
         ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
-        stackOffset += sizeof(Register) * 2;
+        stackOffset += sizeof(Register);
         return result;
     }
 #endif
@@ -234,7 +234,7 @@ private:
 
         count+=2;
         ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
-        stackOffset += sizeof(Register) * 2;
+        stackOffset += sizeof(Register);
         return result;
     }
 #endif
