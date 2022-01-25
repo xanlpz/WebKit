@@ -111,32 +111,43 @@ private:
     }
 
 #if USE(JSVALUE32_64)
-    ArgumentLocation marshallLocationImpl32(CallRole role, const Vector<Reg>& regArgs, size_t& count, size_t& stackOffset) const
+    ArgumentLocation marshallLocationImpl32(CallRole role, TypeKind typeKind, const Vector<Reg>& regArgs, size_t& count, size_t& stackOffset, size_t& gprIndex, bool isArgumentType) const
     {
-        // We need two registers for a 64bit value.
-        if (count + 1 < regArgs.size()) {
-            uint first = count;
-            uint second = count + 1;
-            count += 2;
-            return ArgumentLocation(regArgs[first], regArgs[second]);
+        // We always use two registers for I32/I64 arguments on
+        // 32bit. It's a bit wasteful but it prevents us from changing
+        // tons of code in wasm, and it really does not matter much.
+        // Other than that, I64 return values always need two
+        // registers, obviously.
+        if (isArgumentType || typeKind == TypeKind::I64) {
+            if (gprIndex + 1 < regArgs.size()) {
+                uint first = gprIndex;
+                uint second = gprIndex + 1;
+                gprIndex += 2;
+                count++;
+                return ArgumentLocation(regArgs[first], regArgs[second]);
+            }
+        } else {
+            if (gprIndex < regArgs.size()) {
+                count++;
+                return ArgumentLocation::reg(regArgs[gprIndex++]);
+            }
         }
-
-        count+=2;
+        count++;
         ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
         stackOffset += sizeof(Register);
         return result;
     }
 #endif
 
-    ArgumentLocation marshallLocation(CallRole role, Type valueType, size_t& gpArgumentCount, size_t& fpArgumentCount, size_t& stackOffset) const
+    ArgumentLocation marshallLocation(CallRole role, Type valueType, size_t& gpArgumentCount, size_t& fpArgumentCount, size_t& stackOffset, size_t& gprIndex, bool isArgumentType = false) const
     {
         ASSERT(isValueType(valueType));
         switch (valueType.kind) {
         case TypeKind::I64:
-#if USE(JSVALUE32_64)
-            return marshallLocationImpl32(role, gprArgs, gpArgumentCount, stackOffset);
-#endif
         case TypeKind::I32:
+#if USE(JSVALUE32_64)
+            return marshallLocationImpl32(role, valueType.kind, gprArgs, gpArgumentCount, stackOffset, gprIndex, isArgumentType);
+#endif
         case TypeKind::Funcref:
         case TypeKind::Externref:
         case TypeKind::Ref:
@@ -159,16 +170,18 @@ public:
         size_t gpArgumentCount = 0;
         size_t fpArgumentCount = 0;
         size_t argStackOffset = headerSizeInBytes + sizeof(Register);
+        size_t gprIndex = 0;
         if (role == CallRole::Caller)
             argStackOffset -= sizeof(CallerFrameAndPC);
 
         Vector<ArgumentLocation> params(signature.argumentCount());
         for (size_t i = 0; i < signature.argumentCount(); ++i) {
             argumentsIncludeI64 |= signature.argument(i).isI64();
-            params[i] = marshallLocation(role, signature.argument(i), gpArgumentCount, fpArgumentCount, argStackOffset);
+            params[i] = marshallLocation(role, signature.argument(i), gpArgumentCount, fpArgumentCount, argStackOffset, gprIndex, true);
         }
         gpArgumentCount = 0;
         fpArgumentCount = 0;
+        gprIndex = 0;
         size_t resultStackOffset = headerSizeInBytes + sizeof(Register);
         if (role == CallRole::Caller)
             resultStackOffset -= sizeof(CallerFrameAndPC);
@@ -176,7 +189,7 @@ public:
         Vector<ArgumentLocation, 1> results(signature.returnCount());
         for (size_t i = 0; i < signature.returnCount(); ++i) {
             resultsIncludeI64 |= signature.returnType(i).isI64();
-            results[i] = marshallLocation(role, signature.returnType(i), gpArgumentCount, fpArgumentCount, resultStackOffset);
+            results[i] = marshallLocation(role, signature.returnType(i), gpArgumentCount, fpArgumentCount, resultStackOffset, gprIndex);
         }
 
         CallInformation result(WTFMove(params), WTFMove(results), std::max(argStackOffset, resultStackOffset));
