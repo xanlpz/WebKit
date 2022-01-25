@@ -800,10 +800,24 @@ auto LLIntGenerator::addArguments(const Signature& signature) -> PartialResult
             m_normalizedArguments[index] = virtualRegisterForArgumentIncludingThis(stackIndex++);
     };
 
+#if USE(JSVALUE32_64)
+    const auto addArgument32 = [&](uint32_t index, uint32_t& count, uint32_t max) {
+        if (count < max) {
+            m_normalizedArguments[index] = registerArguments[index];
+            count += 2;
+        } else
+            m_normalizedArguments[index] = virtualRegisterForArgumentIncludingThis(stackIndex++);
+    };
+#endif
+
     for (uint32_t i = 0; i < signature.argumentCount(); i++) {
         switch (signature.argument(i).kind) {
         case TypeKind::I32:
         case TypeKind::I64:
+#if USE(JSVALUE32_64)
+            addArgument32(i, gprIndex, maxGPRIndex);
+            break;
+#endif
         case TypeKind::Externref:
         case TypeKind::Funcref:
         case TypeKind::RefNull:

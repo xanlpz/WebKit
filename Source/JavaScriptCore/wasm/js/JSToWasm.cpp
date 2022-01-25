@@ -291,8 +291,20 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
 #endif
                 }
             } else {
+#if USE(JSVALUE64)
                 if (type.isI32() || type.isF32())
                     jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
+#else
+                if (type.isI32()) {
+                    // FIXME: we are going to pass i32 arguments as if
+                    // they were i64, because the wasm prologue does
+                    // not differentiate between them and assumes
+                    // every integer value to take 64bits in memory.
+                    jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().hi());
+                    jit.move(MacroAssembler::TrustedImmPtr(nullptr), wasmFrameConvention.params[i].reg().lo().gpr());
+                } else if (type.isF32())
+                    jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
+#endif
                 else {
 #if USE(JSVALUE64)
                     jit.load64ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
