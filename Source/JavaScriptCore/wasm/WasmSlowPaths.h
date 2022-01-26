@@ -87,6 +87,17 @@ WASM_SLOW_PATH_HIDDEN_DECL(throw);
 WASM_SLOW_PATH_HIDDEN_DECL(rethrow);
 WASM_SLOW_PATH_HIDDEN_DECL(retrieve_and_clear_exception);
 
+#if USE(JSVALUE32_64)
+WASM_SLOW_PATH_HIDDEN_DECL(f32_ceil);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_floor);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_trunc);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_nearest);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_ceil);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_floor);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_trunc);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_nearest);
+#endif
+
 extern "C" SlowPathReturnType slow_path_wasm_throw_exception(CallFrame*, const Instruction*, Wasm::Instance* instance, Wasm::ExceptionType) REFERENCED_FROM_ASM WTF_INTERNAL;
 extern "C" SlowPathReturnType slow_path_wasm_popcount(const Instruction* pc, uint32_t) REFERENCED_FROM_ASM WTF_INTERNAL;
 extern "C" SlowPathReturnType slow_path_wasm_popcountll(const Instruction* pc, uint64_t) REFERENCED_FROM_ASM WTF_INTERNAL;
