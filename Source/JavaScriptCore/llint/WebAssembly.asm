@@ -448,6 +448,14 @@ macro slowWasmOp(opcodeName)
     unprefixedSlowWasmOp(wasm_%opcodeName%)
 end
 
+macro wasmRoundingOp(opcodeName, opcodeStruct, fn)
+if JSVALUE64
+    wasmOp(opcodeName, opcodeStruct, fn)
+else
+    slowWasmOp(opcodeName)
+end
+end
+
 # Macro version of load operations: mload[suffix]
 # loads field from the instruction stream and performs load[suffix] to dst
 macro firstConstantRegisterIndex(ctx, fn)
@@ -1095,25 +1103,25 @@ wasmOp(i32_popcnt, WasmI32Popcnt, macro (ctx)
     returni(ctx, r1)
 end)
 
-wasmOp(f32_trunc, WasmF32Trunc, macro (ctx)
+wasmRoundingOp(f32_trunc, WasmF32Trunc, macro (ctx)
     mloadf(ctx, m_operand, ft0)
     truncatef ft0, ft0
     returnf(ctx, ft0)
 end)
 
-wasmOp(f32_nearest, WasmF32Nearest, macro (ctx)
+wasmRoundingOp(f32_nearest, WasmF32Nearest, macro (ctx)
     mloadf(ctx, m_operand, ft0)
     roundf ft0, ft0
     returnf(ctx, ft0)
 end)
 
-wasmOp(f64_trunc, WasmF64Trunc, macro (ctx)
+wasmRoundingOp(f64_trunc, WasmF64Trunc, macro (ctx)
     mloadd(ctx, m_operand, ft0)
     truncated ft0, ft0
     returnd(ctx, ft0)
 end)
 
-wasmOp(f64_nearest, WasmF64Nearest, macro (ctx)
+wasmRoundingOp(f64_nearest, WasmF64Nearest, macro (ctx)
     mloadd(ctx, m_operand, ft0)
     roundd ft0, ft0
     returnd(ctx, ft0)
@@ -1619,23 +1627,6 @@ wasmOp(f64_max, WasmF64Max, macro(ctx)
     returnd(ctx, ft1)
 end)
 
-wasmOp(f64_copysign, WasmF64Copysign, macro(ctx)
-    mloadd(ctx, m_lhs, ft0)
-    mloadd(ctx, m_rhs, ft1)
-
-    fd2q ft1, t1
-    move 0x8000000000000000, t2
-    andq t2, t1
-
-    fd2q ft0, t0
-    move 0x7fffffffffffffff, t2
-    andq t2, t0
-
-    orq t1, t0
-    fq2d t0, ft0
-    returnd(ctx, ft0)
-end)
-
 wasmOp(f32_convert_u_i32, WasmF32ConvertUI32, macro(ctx)
     mloadi(ctx, m_operand, t0)
     ci2f t0, ft0
@@ -1851,13 +1842,13 @@ wasmOp(f32_neg, WasmF32Neg, macro(ctx)
     returnf(ctx, ft1)
 end)
 
-wasmOp(f32_ceil, WasmF32Ceil, macro(ctx)
+wasmRoundingOp(f32_ceil, WasmF32Ceil, macro(ctx)
     mloadf(ctx, m_operand, ft0)
     ceilf ft0, ft1
     returnf(ctx, ft1)
 end)
 
-wasmOp(f32_floor, WasmF32Floor, macro(ctx)
+wasmRoundingOp(f32_floor, WasmF32Floor, macro(ctx)
     mloadf(ctx, m_operand, ft0)
     floorf ft0, ft1
     returnf(ctx, ft1)
@@ -1951,13 +1942,13 @@ wasmOp(f64_neg, WasmF64Neg, macro(ctx)
     returnd(ctx, ft1)
 end)
 
-wasmOp(f64_ceil, WasmF64Ceil, macro(ctx)
+wasmRoundingOp(f64_ceil, WasmF64Ceil, macro(ctx)
     mloadd(ctx, m_operand, ft0)
     ceild ft0, ft1
     returnd(ctx, ft1)
 end)
 
-wasmOp(f64_floor, WasmF64Floor, macro(ctx)
+wasmRoundingOp(f64_floor, WasmF64Floor, macro(ctx)
     mloadd(ctx, m_operand, ft0)
     floord ft0, ft1
     returnd(ctx, ft1)
