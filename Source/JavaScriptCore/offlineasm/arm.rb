@@ -61,6 +61,11 @@ class Node
         raise "Bogus register name #{doubleOperand}" unless doubleOperand =~ /^d/
         "s" + ($~.post_match.to_i * 2).to_s
     end
+    def armSingleHi
+        doubleOperand = armOperand
+        raise "Bogus register name #{doubleOperand}" unless doubleOperand =~ /^d/
+        "s" + ($~.post_match.to_i * 2 + 1).to_s
+    end
 end
 
 class SpecialRegister
@@ -418,6 +423,10 @@ def emitArmTestSet(operands, code)
     $asm.puts "mov#{code} #{operands[-1].armOperand}, \#1"
 end
 
+def rawInstruction(codeOrigin, text)
+    return Instruction.new(codeOrigin, "emit", [StringLiteral.new(codeOrigin, "\"#{text}\"")])
+end
+
 class Instruction
     def lowerARMv7
         raise unless $activeBackend == "ARMv7"
@@ -522,17 +531,23 @@ class Instruction
         when "stored"
             $asm.puts "vstr.64 #{armOperands(operands)}"
         when "loadf"
-            $asm.puts "vldr.32 #{armFlippedOperands(operands)}"
+            $asm.puts "vldr.32 #{operands[-1].armSingle}, #{armOperands(operands[0..-2])}"
         when "storef"
-            $asm.puts "vstr.32 #{armOperands(operands)}"
+            $asm.puts "vstr.32 #{operands[0].armSingle}, #{armOperands(operands[1..-1])}"
         when "addf"
             $asm.puts "vadd.f32 #{operands[1].armSingle}, #{operands[1].armSingle}, #{operands[0].armSingle}"
         when "subf"
-            $asm.puts "vsub.f32 #{operands[0].armSingle}, #{operands[0].armSingle}, #{operands[1].armSingle}"
+            $asm.puts "vsub.f32 #{operands[1].armSingle}, #{operands[1].armSingle}, #{operands[0].armSingle}"
         when "mulf"
             $asm.puts "vmul.f32 #{operands[1].armSingle}, #{operands[1].armSingle}, #{operands[0].armSingle}"
         when "divf"
             $asm.puts "vdiv.f32 #{operands[1].armSingle}, #{operands[1].armSingle}, #{operands[0].armSingle}"
+        when "sqrtf"
+            $asm.puts "vsqrt.f32 #{operands[1].armSingle}, #{operands[0].armSingle}"
+        when "absf"
+            $asm.puts "vabs.f32 #{operands[1].armSingle}, #{operands[0].armSingle}"
+        when "negf"
+            $asm.puts "vneg.f32 #{operands[1].armSingle}, #{operands[0].armSingle}"
         when "bflt"
             emitArmSingleBranch("bmi", operands)
         when "bfeq"
@@ -541,26 +556,56 @@ class Instruction
             emitArmSingleBranch("bgt", operands)
         when "addd"
             emitArm("vadd.f64", operands)
-        when "divd"
-            emitArm("vdiv.f64", operands)
         when "subd"
             emitArm("vsub.f64", operands)
         when "muld"
             emitArm("vmul.f64", operands)
+        when "divd"
+            emitArm("vdiv.f64", operands)
         when "sqrtd"
             $asm.puts "vsqrt.f64 #{armFlippedOperands(operands)}"
-        #when "roundf"
-        #    $asm.puts "vrintn.f32 #{operands[1].armSingle}, #{operands[0].armSingle}"
-        #when "roundd"
-        #    emitArm("vrintn.f64", operands)
-        #when "truncatef"
-        #    $asm.puts "vrintz.f32 #{operands[1].armSingle}, #{operands[0].armSingle}"
-        #when "truncated"
-        #    emitArm("vrintz.f64", operands)
-        #when "orf", "ord"
-        #    emitArm("vorr.f64", operands)
-        #when "andf", "andd"
-        #    emitArm("vand.f64", operands)
+        when "negd"
+            $asm.puts "vneg.f64 #{armFlippedOperands(operands)}"
+        when "orf"
+            (tmpLhs, tmpRhs) = ARM_EXTRA_GPRS[-2..-1]
+            Sequence.new(codeOrigin, [
+              rawInstruction(codeOrigin,  "vmov #{tmpLhs.armOperand}, #{operands[0].armSingle}"),
+              rawInstruction(codeOrigin,  "vmov #{tmpRhs.armOperand}, #{operands[1].armSingle}"),
+              Instruction.new(codeOrigin, "ori", [tmpLhs, tmpRhs]),
+              rawInstruction(codeOrigin,  "vmov #{operands[1].armSingle}, #{tmpRhs.armOperand}")
+            ]).lower($activeBackend)
+        when "andf"
+            (tmpLhs, tmpRhs) = ARM_EXTRA_GPRS[-2..-1]
+            Sequence.new(codeOrigin, [
+              rawInstruction(codeOrigin,  "vmov #{tmpLhs.armOperand}, #{operands[0].armSingle}"),
+              rawInstruction(codeOrigin,  "vmov #{tmpRhs.armOperand}, #{operands[1].armSingle}"),
+              Instruction.new(codeOrigin, "andi", [tmpLhs, tmpRhs]),
+              rawInstruction(codeOrigin,  "vmov #{operands[1].armSingle}, #{tmpRhs.armOperand}")
+            ]).lower($activeBackend)
+        when "ord"
+            (tmpLhs, tmpRhs) = ARM_EXTRA_GPRS[-2..-1]
+            Sequence.new(codeOrigin, [
+              rawInstruction(codeOrigin,  "vmov #{tmpLhs.armOperand}, #{operands[0].armSingle}"),
+              rawInstruction(codeOrigin,  "vmov #{tmpRhs.armOperand}, #{operands[1].armSingle}"),
+              Instruction.new(codeOrigin, "ori", [tmpLhs, tmpRhs]),
+              rawInstruction(codeOrigin,  "vmov #{operands[1].armSingle}, #{tmpRhs.armOperand}"),
+              rawInstruction(codeOrigin,  "vmov #{tmpLhs.armOperand}, #{operands[0].armSingleHi}"),
+              rawInstruction(codeOrigin,  "vmov #{tmpRhs.armOperand}, #{operands[1].armSingleHi}"),
+              Instruction.new(codeOrigin, "ori", [tmpLhs, tmpRhs]),
+              rawInstruction(codeOrigin,  "vmov #{operands[1].armSingleHi}, #{tmpRhs.armOperand}")
+            ]).lower($activeBackend)
+        when "andd"
+            (tmpLhs, tmpRhs) = ARM_EXTRA_GPRS[-2..-1]
+            Sequence.new(codeOrigin, [
+              rawInstruction(codeOrigin,  "vmov #{tmpLhs.armOperand}, #{operands[0].armSingle}"),
+              rawInstruction(codeOrigin,  "vmov #{tmpRhs.armOperand}, #{operands[1].armSingle}"),
+              Instruction.new(codeOrigin, "andi", [tmpLhs, tmpRhs]),
+              rawInstruction(codeOrigin,  "vmov #{operands[1].armSingle}, #{tmpRhs.armOperand}"),
+              rawInstruction(codeOrigin,  "vmov #{tmpLhs.armOperand}, #{operands[0].armSingleHi}"),
+              rawInstruction(codeOrigin,  "vmov #{tmpRhs.armOperand}, #{operands[1].armSingleHi}"),
+              Instruction.new(codeOrigin, "andi", [tmpLhs, tmpRhs]),
+              rawInstruction(codeOrigin,  "vmov #{operands[1].armSingleHi}, #{tmpRhs.armOperand}")
+            ]).lower($activeBackend)
         when "ci2ds"
             $asm.puts "vmov #{operands[1].armSingle}, #{operands[0].armOperand}"
             $asm.puts "vcvt.f64.s32 #{operands[1].armOperand}, #{operands[1].armSingle}"
@@ -745,6 +790,10 @@ class Instruction
             $asm.puts "ldr #{operands[1].armOperand}, [sp, \##{operands[0].value * 4}]"
         when "poke"
             $asm.puts "str #{operands[1].armOperand}, [sp, \##{operands[0].value * 4}]"
+        when "fi2f"
+            $asm.puts "vmov #{operands[1].armSingle}, #{operands[0].armOperand}"
+        when "ff2i"
+            $asm.puts "vmov #{operands[1].armOperand}, #{operands[0].armSingle}"
         when "fii2d"
             $asm.puts "vmov #{operands[2].armOperand}, #{operands[0].armOperand}, #{operands[1].armOperand}"
         when "fd2ii"
