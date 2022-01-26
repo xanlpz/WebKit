@@ -721,6 +721,74 @@ WASM_SLOW_PATH_DECL(retrieve_and_clear_exception)
     WASM_RETURN_TWO(pc, payload);
 }
 
+#if USE(JSVALUE32_64)
+WASM_SLOW_PATH_DECL(f32_ceil)
+{
+    UNUSED_PARAM(instance);
+    auto instruction = pc->as<WasmF32Ceil, WasmOpcodeTraits>();
+    float operand = READ(instruction.m_operand).unboxedFloat();
+    WASM_RETURN(JSValue::encode(jsUnboxedFloat(std::ceil(operand))));
+}
+
+WASM_SLOW_PATH_DECL(f32_floor)
+{
+    UNUSED_PARAM(instance);
+    auto instruction = pc->as<WasmF32Floor, WasmOpcodeTraits>();
+    float operand = READ(instruction.m_operand).unboxedFloat();
+    WASM_RETURN(JSValue::encode(jsUnboxedFloat(std::floor(operand))));
+}
+
+WASM_SLOW_PATH_DECL(f32_trunc)
+{
+    UNUSED_PARAM(instance);
+    auto instruction = pc->as<WasmF32Trunc, WasmOpcodeTraits>();
+    float operand = READ(instruction.m_operand).unboxedFloat();
+    WASM_RETURN(JSValue::encode(jsUnboxedFloat(std::trunc(operand))));
+}
+
+WASM_SLOW_PATH_DECL(f32_nearest)
+{
+    static_assert(std::numeric_limits<float>::round_style == std::round_to_nearest);
+    UNUSED_PARAM(instance);
+    auto instruction = pc->as<WasmF32Nearest, WasmOpcodeTraits>();
+    float operand = READ(instruction.m_operand).unboxedFloat();
+    WASM_RETURN(JSValue::encode(jsUnboxedFloat(std::nearbyint(operand))));
+}
+
+WASM_SLOW_PATH_DECL(f64_ceil)
+{
+    UNUSED_PARAM(instance);
+    auto instruction = pc->as<WasmF64Ceil, WasmOpcodeTraits>();
+    double operand = READ(instruction.m_operand).unboxedDouble();
+    WASM_RETURN(JSValue::encode(jsDoubleNumber(std::ceil(operand))));
+}
+
+WASM_SLOW_PATH_DECL(f64_floor)
+{
+    UNUSED_PARAM(instance);
+    auto instruction = pc->as<WasmF64Floor, WasmOpcodeTraits>();
+    double operand = READ(instruction.m_operand).unboxedDouble();
+    WASM_RETURN(JSValue::encode(jsDoubleNumber(std::floor(operand))));
+}
+
+WASM_SLOW_PATH_DECL(f64_trunc)
+{
+    UNUSED_PARAM(instance);
+    auto instruction = pc->as<WasmF64Trunc, WasmOpcodeTraits>();
+    double operand = READ(instruction.m_operand).unboxedDouble();
+    WASM_RETURN(JSValue::encode(jsDoubleNumber(std::trunc(operand))));
+}
+
+WASM_SLOW_PATH_DECL(f64_nearest)
+{
+    static_assert(std::numeric_limits<float>::round_style == std::round_to_nearest);
+    UNUSED_PARAM(instance);
+    auto instruction = pc->as<WasmF64Nearest, WasmOpcodeTraits>();
+    double operand = READ(instruction.m_operand).unboxedDouble();
+    WASM_RETURN(JSValue::encode(jsDoubleNumber(std::nearbyint(operand))));
+}
+#endif
+
 extern "C" SlowPathReturnType slow_path_wasm_throw_exception(CallFrame* callFrame, const Instruction* pc, Wasm::Instance* instance, Wasm::ExceptionType exceptionType)
 {
     UNUSED_PARAM(pc);
