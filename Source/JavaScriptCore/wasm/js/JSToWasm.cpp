@@ -267,6 +267,7 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
 #else
         GPRReg scratchReg = GPRInfo::regCS1; // regCS1 is the LLInt PB, should be safe to use it just for the argument setup.
 #endif
+        FPRReg fprScratch = wasmCallingConvention().fprArgs[0].fpr(); // We'll only use this for stack arguments, should be safe to use as scratch.
 
         if (!Context::useFastTLS()) {
             jit.loadPtr(CCallHelpers::Address(GPRInfo::callFrameRegister, JSCallingConvention::instanceStackOffset), wasmContextInstanceGPR);
@@ -280,14 +281,25 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
             CCallHelpers::Address jsParam(GPRInfo::callFrameRegister, jsFrameConvention.params[i].offsetFromFP());
             if (wasmFrameConvention.params[i].isStackArgument()) {
                 if (type.isI32() || type.isF32()) {
+                    // FIXME: don't we need to use loadDouble/storeDouble here for 32bit?
                     jit.load32(jsParam, scratchReg);
                     jit.store32(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
                 } else {
-#if USE(JSVALUE64) //FIXME: for 32bit
+#if USE(JSVALUE64)
                     jit.load64(jsParam, scratchReg);
                     jit.store64(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
 #else
-                    ASSERT_NOT_REACHED();
+                    if (type.isI64()) {
+                        // We only have one scratch reg, so we have to do this sequentially.
+                        // FIXME: would be nice to reuse the logic in the MacroAssembler file.
+                        jit.load32(jsParam, scratchReg);
+                        jit.store32(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
+                        jit.load32(jsParam.withOffset(4), scratchReg);
+                        jit.store32(scratchReg, calleeFrame.withOffset(4 + wasmFrameConvention.params[i].offsetFromSP()));
+                    } else {
+                        jit.loadDouble(jsParam, fprScratch);
+                        jit.storeDouble(fprScratch, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
+                    }
 #endif
                 }
             } else {
@@ -296,10 +308,10 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
                     jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
 #else
                 if (type.isI32()) {
-                    // FIXME: we are going to pass i32 arguments as if
-                    // they were i64, because the wasm prologue does
-                    // not differentiate between them and assumes
-                    // every integer value to take 64bits in memory.
+                    // We are going to pass i32 arguments as if they
+                    // were i64, because the wasm prologue does not
+                    // differentiate between them and assumes every
+                    // integer value to take 64bits in memory.
                     jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().hi());
                     jit.move(MacroAssembler::TrustedImmPtr(nullptr), wasmFrameConvention.params[i].reg().lo().gpr());
                 } else if (type.isF32())
