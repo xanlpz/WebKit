@@ -660,3 +660,15 @@ wasmOp(i64_eqz, WasmI64Eqz, macro(ctx)
     returni(ctx, t2)
 end)
 
+# f64 binary ops
+
+wasmOp(f64_copysign, WasmF64Copysign, macro(ctx)
+    mload2i(ctx, m_lhs, t1, t0)
+    mload2i(ctx, m_rhs, t3, t2) # t2 unused
+
+    andi 0x7fffffff, t1
+    andi 0x80000000, t3
+    ori t3, t1
+
+    return2i(ctx, t1, t0)
+end)

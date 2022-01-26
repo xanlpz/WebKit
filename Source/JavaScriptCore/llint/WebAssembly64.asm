@@ -488,3 +488,22 @@ wasmOp(i64_eqz, WasmI64Eqz, macro(ctx)
     returni(ctx, t0)
 end)
 
+# f64 binary ops
+
+wasmOp(f64_copysign, WasmF64Copysign, macro(ctx)
+    mloadd(ctx, m_lhs, ft0)
+    mloadd(ctx, m_rhs, ft1)
+
+    fd2q ft1, t1
+    move 0x8000000000000000, t2
+    andq t2, t1
+
+    fd2q ft0, t0
+    move 0x7fffffffffffffff, t2
+    andq t2, t0
+
+    orq t1, t0
+    fq2d t0, ft0
+    returnd(ctx, ft0)
+end)
+

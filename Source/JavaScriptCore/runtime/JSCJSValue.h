@@ -182,6 +182,9 @@ public:
     enum EncodeAsBigInt32Tag { EncodeAsBigInt32 };
 #endif
     enum EncodeAsDoubleTag { EncodeAsDouble };
+#if ENABLE(WEBASSEMBLY) && USE(JSVALUE32_64)
+    enum EncodeAsUnboxedFloatTag { EncodeAsUnboxedFloat };
+#endif
 
     JSValue();
     JSValue(JSNullTag);
@@ -192,6 +195,9 @@ public:
     JSValue(const JSCell* ptr);
 #if USE(BIGINT32)
     JSValue(EncodeAsBigInt32Tag, int32_t);
+#endif
+#if ENABLE(WEBASSEMBLY) && USE(JSVALUE32_64)
+    JSValue(EncodeAsUnboxedFloatTag, float);
 #endif
 
     // Numbers
@@ -591,6 +597,13 @@ inline JSValue jsBoolean(bool b)
 ALWAYS_INLINE JSValue jsBigInt32(int32_t intValue)
 {
     return JSValue(JSValue::EncodeAsBigInt32, intValue);
+}
+#endif
+
+#if ENABLE(WEBASSEMBLY) && USE(JSVALUE32_64)
+ALWAYS_INLINE JSValue jsUnboxedFloat(float f)
+{
+    return JSValue(JSValue::EncodeAsUnboxedFloat, f);
 }
 #endif
 
