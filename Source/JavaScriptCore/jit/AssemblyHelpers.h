@@ -127,6 +127,12 @@ public:
         ASSERT(hi.isGPR() && lo.isGPR());
         loadPair32(src, hi.gpr(), lo.gpr());
     }
+
+    void storePair32FromRegs(Reg hi, Reg lo, Address src)
+    {
+        ASSERT(hi.isGPR() && lo.isGPR());
+        storePair32(hi.gpr(), lo.gpr(), src);
+    }
 #endif
     
     void load32ToReg(Address src, Reg dst)
