@@ -443,8 +443,18 @@ macro slowWasmOp(opcodeName)
     unprefixedSlowWasmOp(wasm_%opcodeName%)
 end
 
+# Float to float rounding ops
 macro wasmRoundingOp(opcodeName, opcodeStruct, fn)
-if JSVALUE64
+if JSVALUE64 # All current 64-bit platforms have instructions for these
+    wasmOp(opcodeName, opcodeStruct, fn)
+else
+    slowWasmOp(opcodeName)
+end
+end
+
+# i64 (signed/unsigned) to f32 or f64
+macro wasmI64ToFOp(opcodeName, opcodeStruct, fn)
+if JSVALUE64 # All current 64-bit platforms have instructions for these
     wasmOp(opcodeName, opcodeStruct, fn)
 else
     slowWasmOp(opcodeName)
@@ -1140,24 +1150,6 @@ wasmOp(i32_trunc_s_f32, WasmI32TruncSF32, macro (ctx)
     throwException(OutOfBoundsTrunc)
 end)
 
-wasmOp(i32_trunc_s_f64, WasmI32TruncSF64, macro (ctx)
-    mloadd(ctx, m_operand, ft0)
-
-    move 0xc1e0000000200000, t0 # INT32_MIN - 1.0
-    fq2d t0, ft1
-    bdltequn ft0, ft1, .outOfBoundsTrunc
-
-    move 0x41e0000000000000, t0 # -INT32_MIN
-    fq2d t0, ft1
-    bdgtequn ft0, ft1, .outOfBoundsTrunc
-
-    truncated2is ft0, t0
-    returni(ctx, t0)
-
-.outOfBoundsTrunc:
-    throwException(OutOfBoundsTrunc)
-end)
-
 wasmOp(i32_trunc_u_f32, WasmI32TruncUF32, macro (ctx)
     mloadf(ctx, m_operand, ft0)
 
@@ -1171,100 +1163,6 @@ wasmOp(i32_trunc_u_f32, WasmI32TruncUF32, macro (ctx)
 
     truncatef2i ft0, t0
     returni(ctx, t0)
-
-.outOfBoundsTrunc:
-    throwException(OutOfBoundsTrunc)
-end)
-
-wasmOp(i32_trunc_u_f64, WasmI32TruncUF64, macro (ctx)
-    mloadd(ctx, m_operand, ft0)
-
-    move 0xbff0000000000000, t0 # -1.0
-    fq2d t0, ft1
-    bdltequn ft0, ft1, .outOfBoundsTrunc
-
-    move 0x41f0000000000000, t0 # INT32_MIN * -2.0
-    fq2d t0, ft1
-    bdgtequn ft0, ft1, .outOfBoundsTrunc
-
-    truncated2i ft0, t0
-    returni(ctx, t0)
-
-.outOfBoundsTrunc:
-    throwException(OutOfBoundsTrunc)
-end)
-
-wasmOp(i64_trunc_s_f32, WasmI64TruncSF32, macro (ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadf(ctx, m_operand, ft0)
-
-    move 0xdf000000, t0 # INT64_MIN
-    fi2f t0, ft1
-    bfltun ft0, ft1, .outOfBoundsTrunc
-
-    move 0x5f000000, t0 # -INT64_MIN
-    fi2f t0, ft1
-    bfgtequn ft0, ft1, .outOfBoundsTrunc
-
-    truncatef2qs ft0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTrunc:
-    throwException(OutOfBoundsTrunc)
-end)
-
-wasmOp(i64_trunc_s_f64, WasmI64TruncSF64, macro (ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadd(ctx, m_operand, ft0)
-
-    move 0xc3e0000000000000, t0 # INT64_MIN
-    fq2d t0, ft1
-    bdltun ft0, ft1, .outOfBoundsTrunc
-
-    move 0x43e0000000000000, t0 # -INT64_MIN
-    fq2d t0, ft1
-    bdgtequn ft0, ft1, .outOfBoundsTrunc
-
-    truncated2qs ft0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTrunc:
-    throwException(OutOfBoundsTrunc)
-end)
-
-wasmOp(i64_trunc_u_f32, WasmI64TruncUF32, macro (ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadf(ctx, m_operand, ft0)
-
-    move 0xbf800000, t0 # -1.0
-    fi2f t0, ft1
-    bfltequn ft0, ft1, .outOfBoundsTrunc
-
-    move 0x5f800000, t0 # INT64_MIN * -2.0
-    fi2f t0, ft1
-    bfgtequn ft0, ft1, .outOfBoundsTrunc
-
-    truncatef2q ft0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTrunc:
-    throwException(OutOfBoundsTrunc)
-end)
-
-wasmOp(i64_trunc_u_f64, WasmI64TruncUF64, macro (ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadd(ctx, m_operand, ft0)
-
-    move 0xbff0000000000000, t0 # -1.0
-    fq2d t0, ft1
-    bdltequn ft0, ft1, .outOfBoundsTrunc
-
-    move 0x43f0000000000000, t0 # INT64_MIN * -2.0
-    fq2d t0, ft1
-    bdgtequn ft0, ft1, .outOfBoundsTrunc
-
-    truncated2q ft0, t0
-    returnq(ctx, t0)
 
 .outOfBoundsTrunc:
     throwException(OutOfBoundsTrunc)
@@ -1286,34 +1184,6 @@ wasmOp(i32_trunc_sat_f32_s, WasmI32TruncSatF32S, macro (ctx)
 
 .outOfBoundsTruncSatMinOrNaN:
     bfeq ft0, ft0, .outOfBoundsTruncSatMin
-    move 0, t0
-    returni(ctx, t0)
-
-.outOfBoundsTruncSatMax:
-    move (constexpr INT32_MAX), t0
-    returni(ctx, t0)
-
-.outOfBoundsTruncSatMin:
-    move (constexpr INT32_MIN), t0
-    returni(ctx, t0)
-end)
-
-wasmOp(i32_trunc_sat_f64_s, WasmI32TruncSatF64S, macro (ctx)
-    mloadd(ctx, m_operand, ft0)
-
-    move 0xc1e0000000200000, t0 # INT32_MIN - 1.0
-    fq2d t0, ft1
-    bdltequn ft0, ft1, .outOfBoundsTruncSatMinOrNaN
-
-    move 0x41e0000000000000, t0 # -INT32_MIN
-    fq2d t0, ft1
-    bdgtequn ft0, ft1, .outOfBoundsTruncSatMax
-
-    truncated2is ft0, t0
-    returni(ctx, t0)
-
-.outOfBoundsTruncSatMinOrNaN:
-    bdeq ft0, ft0, .outOfBoundsTruncSatMin
     move 0, t0
     returni(ctx, t0)
 
@@ -1349,160 +1219,22 @@ wasmOp(i32_trunc_sat_f32_u, WasmI32TruncSatF32U, macro (ctx)
     returni(ctx, t0)
 end)
 
-wasmOp(i32_trunc_sat_f64_u, WasmI32TruncSatF64U, macro (ctx)
-    mloadd(ctx, m_operand, ft0)
-
-    move 0xbff0000000000000, t0 # -1.0
-    fq2d t0, ft1
-    bdltequn ft0, ft1, .outOfBoundsTruncSatMin
-
-    move 0x41f0000000000000, t0 # INT32_MIN * -2.0
-    fq2d t0, ft1
-    bdgtequn ft0, ft1, .outOfBoundsTruncSatMax
-
-    truncated2i ft0, t0
-    returni(ctx, t0)
-
-.outOfBoundsTruncSatMin:
-    move 0, t0
-    returni(ctx, t0)
-
-.outOfBoundsTruncSatMax:
-    move (constexpr UINT32_MAX), t0
-    returni(ctx, t0)
-end)
-
-wasmOp(i64_trunc_sat_f32_s, WasmI64TruncSatF32S, macro (ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadf(ctx, m_operand, ft0)
-
-    move 0xdf000000, t0 # INT64_MIN
-    fi2f t0, ft1
-    bfltun ft0, ft1, .outOfBoundsTruncSatMinOrNaN
-
-    move 0x5f000000, t0 # -INT64_MIN
-    fi2f t0, ft1
-    bfgtequn ft0, ft1, .outOfBoundsTruncSatMax
-
-    truncatef2qs ft0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMinOrNaN:
-    bfeq ft0, ft0, .outOfBoundsTruncSatMin
-    move 0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMax:
-    move (constexpr INT64_MAX), t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMin:
-    move (constexpr INT64_MIN), t0
-    returnq(ctx, t0)
-end)
-
-wasmOp(i64_trunc_sat_f64_s, WasmI64TruncSatF64S, macro (ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadd(ctx, m_operand, ft0)
-
-    move 0xc3e0000000000000, t0 # INT64_MIN
-    fq2d t0, ft1
-    bdltun ft0, ft1, .outOfBoundsTruncSatMinOrNaN
-
-    move 0x43e0000000000000, t0 # -INT64_MIN
-    fq2d t0, ft1
-    bdgtequn ft0, ft1, .outOfBoundsTruncSatMax
-
-    truncated2qs ft0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMinOrNaN:
-    bdeq ft0, ft0, .outOfBoundsTruncSatMin
-    move 0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMax:
-    move (constexpr INT64_MAX), t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMin:
-    move (constexpr INT64_MIN), t0
-    returnq(ctx, t0)
-end)
-
-wasmOp(i64_trunc_sat_f32_u, WasmI64TruncSatF32U, macro (ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadf(ctx, m_operand, ft0)
-
-    move 0xbf800000, t0 # -1.0
-    fi2f t0, ft1
-    bfltequn ft0, ft1, .outOfBoundsTruncSatMin
-
-    move 0x5f800000, t0 # INT64_MIN * -2.0
-    fi2f t0, ft1
-    bfgtequn ft0, ft1, .outOfBoundsTruncSatMax
-
-    truncatef2q ft0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMin:
-    move 0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMax:
-    move (constexpr UINT64_MAX), t0
-    returnq(ctx, t0)
-end)
-
-wasmOp(i64_trunc_sat_f64_u, WasmI64TruncSatF64U, macro (ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadd(ctx, m_operand, ft0)
-
-    move 0xbff0000000000000, t0 # -1.0
-    fq2d t0, ft1
-    bdltequn ft0, ft1, .outOfBoundsTruncSatMin
-
-    move 0x43f0000000000000, t0 # INT64_MIN * -2.0
-    fq2d t0, ft1
-    bdgtequn ft0, ft1, .outOfBoundsTruncSatMax
-
-    truncated2q ft0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMin:
-    move 0, t0
-    returnq(ctx, t0)
-
-.outOfBoundsTruncSatMax:
-    move (constexpr UINT64_MAX), t0
-    returnq(ctx, t0)
-end)
-
-
-wasmOp(f32_convert_u_i64, WasmF32ConvertUI64, macro (ctx)
+wasmI64ToFOp(f32_convert_u_i64, WasmF32ConvertUI64, macro (ctx)
     mloadq(ctx, m_operand, t0)
     if X86_64
         cq2f t0, t1, ft0
-    elsif ARM64 or ARM64E or RISCV64
-        cq2f t0, ft0
-    elsif ARMv7
-        crash() # FIXME
     else
-        error
+        cq2f t0, ft0
     end
     returnf(ctx, ft0)
 end)
 
-wasmOp(f64_convert_u_i64, WasmF64ConvertUI64, macro (ctx)
+wasmI64ToFOp(f64_convert_u_i64, WasmF64ConvertUI64, macro (ctx)
     mloadq(ctx, m_operand, t0)
     if X86_64
         cq2d t0, t1, ft0
-    elsif ARM64 or ARM64E or RISCV64
-        cq2d t0, ft0
-    elsif ARMv7
-        crash() # FIXME
     else
-        error
+        cq2d t0, ft0
     end
     returnd(ctx, ft0)
 end)
@@ -2002,27 +1734,6 @@ wasmOp(i32_wrap_i64, WasmI32WrapI64, macro(ctx)
     returni(ctx, t0)
 end)
 
-wasmOp(i64_extend_s_i32, WasmI64ExtendSI32, macro(ctx)
-    mloadi(ctx, m_operand, t0)
-if JSVALUE64
-    sxi2q t0, t1
-    returnq(ctx, t1)
-else
-    rshifti t0, 31, t1
-    return2i(ctx, t1, t0)
-end
-end)
-
-wasmOp(i64_extend_u_i32, WasmI64ExtendUI32, macro(ctx)
-    mloadi(ctx, m_operand, t0)
-if JSVALUE64
-    zxi2q t0, t1
-    returnq(ctx, t1)
-else
-    return2i(ctx, 0, t0)
-end
-end)
-
 wasmOp(i32_extend8_s, WasmI32Extend8S, macro(ctx)
     mloadi(ctx, m_operand, t0)
     sxb2i t0, t1
@@ -2035,49 +1746,13 @@ wasmOp(i32_extend16_s, WasmI32Extend16S, macro(ctx)
     returni(ctx, t1)
 end)
 
-wasmOp(i64_extend8_s, WasmI64Extend8S, macro(ctx)
-    mloadi(ctx, m_operand, t0)
-if JSVALUE64
-    sxb2q t0, t1
-    returnq(ctx, t1)
-else
-    sxb2i t0, t0
-    rshifti t0, 31, t1
-    return2i(ctx, t1, t0)
-end
-end)
-
-wasmOp(i64_extend16_s, WasmI64Extend16S, macro(ctx)
-    mloadi(ctx, m_operand, t0)
-if JSVALUE64
-    sxh2q t0, t1
-    returnq(ctx, t1)
-else
-    sxh2i t0, t0
-    rshifti t0, 31, t1
-    return2i(ctx, t1, t0)
-end
-end)
-
-wasmOp(i64_extend32_s, WasmI64Extend16S, macro(ctx)
-    mloadi(ctx, m_operand, t0)
-if JSVALUE64
-    sxi2q t0, t1
-    returnq(ctx, t1)
-else
-    rshifti t0, 31, t1
-    return2i(ctx, t1, t0)
-end
-end)
-
 wasmOp(f32_convert_s_i32, WasmF32ConvertSI32, macro(ctx)
     mloadi(ctx, m_operand, t0)
     ci2fs t0, ft0
     returnf(ctx, ft0)
 end)
 
-wasmOp(f32_convert_s_i64, WasmF32ConvertSI64, macro(ctx)
-    crashOn32BitPlatforms() # FIXME
+wasmI64ToFOp(f32_convert_s_i64, WasmF32ConvertSI64, macro(ctx)
     mloadq(ctx, m_operand, t0)
     cq2fs t0, ft0
     returnf(ctx, ft0)
@@ -2101,8 +1776,7 @@ wasmOp(f64_convert_s_i32, WasmF64ConvertSI32, macro(ctx)
     returnd(ctx, ft0)
 end)
 
-wasmOp(f64_convert_s_i64, WasmF64ConvertSI64, macro(ctx)
-    crashOn32BitPlatforms() # FIXME
+wasmI64ToFOp(f64_convert_s_i64, WasmF64ConvertSI64, macro(ctx)
     mloadq(ctx, m_operand, t0)
     cq2ds t0, ft0
     returnd(ctx, ft0)
@@ -2114,24 +1788,10 @@ wasmOp(f64_promote_f32, WasmF64PromoteF32, macro(ctx)
     returnd(ctx, ft1)
 end)
 
-wasmOp(f64_reinterpret_i64, WasmF64ReinterpretI64, macro(ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadq(ctx, m_operand, t0)
-    fq2d t0, ft0
-    returnd(ctx, ft0)
-end)
-
 wasmOp(i32_reinterpret_f32, WasmI32ReinterpretF32, macro(ctx)
     mloadf(ctx, m_operand, ft0)
     ff2i ft0, t0
     returni(ctx, t0)
-end)
-
-wasmOp(i64_reinterpret_f64, WasmI64ReinterpretF64, macro(ctx)
-    crashOn32BitPlatforms() # FIXME
-    mloadd(ctx, m_operand, ft0)
-    fd2q ft0, t0
-    returnq(ctx, t0)
 end)
 
 macro dropKeep(startOffset, drop, keep)

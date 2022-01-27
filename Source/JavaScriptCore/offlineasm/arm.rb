@@ -439,6 +439,15 @@ def rawInstruction(codeOrigin, text)
     return Instruction.new(codeOrigin, "emit", [StringLiteral.new(codeOrigin, "\"#{text}\"")])
 end
 
+def emitArmTruncateFloat(codeOrigin, to, from, operands)
+    tmp = ARM_EXTRA_FPRS[-1]
+    src = from == "f32" ? operands[0].armSingle : operands[0].armOperand
+    Sequence.new(codeOrigin, [
+        rawInstruction(codeOrigin, "vcvt.#{to}.#{from} #{tmp.armSingle}, #{src}"),
+        rawInstruction(codeOrigin, "vmov #{operands[1].armOperand}, #{tmp.armSingle}")
+    ]).lower($activeBackend)
+end
+
 class Instruction
     def lowerARMv7
         raise unless $activeBackend == "ARMv7"
@@ -562,10 +571,18 @@ class Instruction
             $asm.puts "vneg.f32 #{operands[1].armSingle}, #{operands[0].armSingle}"
         when "bflt"
             emitArmSingleBranch("bmi", operands)
+        when "bfltun"
+            emitArmSingleBranch("blt", operands)
+        when "bfltequn"
+            emitArmSingleBranch("ble", operands)
         when "bfeq"
             emitArmSingleBranch("beq", operands)
         when "bfgt"
             emitArmSingleBranch("bgt", operands)
+        when "bfgtequn"
+            emitArmSingleBranch("bpl", operands)
+        when "bdltun"
+            emitArmDoubleBranch("blt", operands)
         when "addd"
             emitArm("vadd.f64", operands)
         when "subd"
@@ -688,9 +705,17 @@ class Instruction
             else
                 $asm.puts "mov #{armFlippedOperands(operands)}"
             end
+        when "moveii"
+            raise "First operand of moveii must be an immediate" unless operands[0].immediate?
+            armMoveImmediate(operands[0].value >> 32, operands[1])
+            armMoveImmediate(operands[0].value & 0xffffffff, operands[2])
         when "mvlbl"
                 $asm.puts "movw #{operands[1].armOperand}, \#:lower16:#{operands[0].value}"
                 $asm.puts "movt #{operands[1].armOperand}, \#:upper16:#{operands[0].value}"
+        when "sxb2i"
+            $asm.puts "sxtb #{armFlippedOperands(operands)}"
+        when "sxh2i"
+            $asm.puts "sxth #{armFlippedOperands(operands)}"
         when "nop"
             $asm.puts "nop"
         when "bieq", "bpeq", "bbeq"
@@ -808,6 +833,22 @@ class Instruction
             emitArmDoubleCompare(operands, "gt")
         when "cdgteq"
             emitArmDoubleCompare(operands, "ge")
+        when "cf2d"
+            $asm.puts "vcvt.f64.f32 #{operands[1].armOperand}, #{operands[0].armSingle}"
+        when "cd2f"
+            $asm.puts "vcvt.f32.f64 #{operands[1].armSingle}, #{operands[0].armOperand}"
+        when "ci2f"
+            $asm.puts "vmov #{operands[1].armSingle}, #{operands[0].armOperand}"
+            $asm.puts "vcvt.f32.u32 #{operands[1].armSingle}, #{operands[1].armSingle}"
+        when "ci2fs"
+            $asm.puts "vmov #{operands[1].armSingle}, #{operands[0].armOperand}"
+            $asm.puts "vcvt.f32.s32 #{operands[1].armSingle}, #{operands[1].armSingle}"
+        when "ci2d"
+            $asm.puts "vmov #{operands[1].armSingle}, #{operands[0].armOperand}"
+            $asm.puts "vcvt.f64.u32 #{operands[1].armOperand}, #{operands[1].armSingle}"
+        when "ci2ds"
+            $asm.puts "vmov #{operands[1].armSingle}, #{operands[0].armOperand}"
+            $asm.puts "vcvt.f64.s32 #{operands[1].armOperand}, #{operands[1].armSingle}"
         when "tis", "tbs", "tps"
             emitArmTestSet(operands, "mi")
         when "tiz", "tbz", "tpz"
@@ -826,6 +867,14 @@ class Instruction
             $asm.puts "vmov #{operands[2].armOperand}, #{operands[0].armOperand}, #{operands[1].armOperand}"
         when "fd2ii"
             $asm.puts "vmov #{operands[1].armOperand}, #{operands[2].armOperand}, #{operands[0].armOperand}"
+        when "truncatef2i"
+            emitArmTruncateFloat(codeOrigin, "u32", "f32", operands)
+        when "truncatef2is"
+            emitArmTruncateFloat(codeOrigin, "s32", "f32", operands)
+        when "truncated2i"
+            emitArmTruncateFloat(codeOrigin, "u32", "f64", operands)
+        when "truncated2is"
+            emitArmTruncateFloat(codeOrigin, "s32", "f64", operands)
         when "bo"
             $asm.puts "bvs #{operands[0].asmLabel}"
         when "bs"
