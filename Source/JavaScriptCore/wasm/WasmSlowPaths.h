@@ -96,6 +96,18 @@ WASM_SLOW_PATH_HIDDEN_DECL(f64_ceil);
 WASM_SLOW_PATH_HIDDEN_DECL(f64_floor);
 WASM_SLOW_PATH_HIDDEN_DECL(f64_trunc);
 WASM_SLOW_PATH_HIDDEN_DECL(f64_nearest);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_convert_u_i64);
+WASM_SLOW_PATH_HIDDEN_DECL(f32_convert_s_i64);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_convert_u_i64);
+WASM_SLOW_PATH_HIDDEN_DECL(f64_convert_s_i64);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_u_f32);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_s_f32);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_u_f64);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_s_f64);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_sat_f32_u);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_sat_f32_s);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_sat_f64_u);
+WASM_SLOW_PATH_HIDDEN_DECL(i64_trunc_sat_f64_s);
 #endif
 
 extern "C" SlowPathReturnType slow_path_wasm_throw_exception(CallFrame*, const Instruction*, Wasm::Instance* instance, Wasm::ExceptionType) REFERENCED_FROM_ASM WTF_INTERNAL;

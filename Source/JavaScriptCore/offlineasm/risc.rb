@@ -373,7 +373,7 @@ def riscLowerMalformedImmediates(list, validImmediates, validLogicalImmediates)
         if node.is_a? Instruction
             annotation = node.annotation
             case node.opcode
-            when "move"
+            when "move", "moveii"
                 newList << node
             when "addi", "addp", "addq", "addis", "subi", "subp", "subq", "subis"
                 if node.operands[0].is_a? Immediate and

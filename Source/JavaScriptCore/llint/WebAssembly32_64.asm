@@ -672,3 +672,148 @@ wasmOp(f64_copysign, WasmF64Copysign, macro(ctx)
 
     return2i(ctx, t1, t0)
 end)
+
+# Type conversion ops
+
+wasmOp(i64_extend_s_i32, WasmI64ExtendSI32, macro(ctx)
+    mloadi(ctx, m_operand, t0)
+    rshifti t0, 31, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_extend_u_i32, WasmI64ExtendUI32, macro(ctx)
+    mloadi(ctx, m_operand, t0)
+    return2i(ctx, 0, t0)
+end)
+
+wasmOp(f64_reinterpret_i64, WasmF64ReinterpretI64, macro(ctx)
+    mload2i(ctx, m_operand, t1, t0)
+    fii2d t0, t1, ft0
+    returnd(ctx, ft0)
+end)
+
+wasmOp(i64_reinterpret_f64, WasmI64ReinterpretF64, macro(ctx)
+    mloadd(ctx, m_operand, ft0)
+    fd2ii ft0, t0, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i32_trunc_s_f64, WasmI32TruncSF64, macro (ctx)
+    mloadd(ctx, m_operand, ft0)
+
+    moveii 0xc1e0000000200000, t1, t0 # INT32_MIN - 1.0
+    fii2d t0, t1, ft1
+    bdltequn ft0, ft1, .outOfBoundsTrunc
+
+    moveii 0x41e0000000000000, t1, t0 # -INT32_MIN
+    fii2d t0, t1, ft1
+    bdgtequn ft0, ft1, .outOfBoundsTrunc
+
+    truncated2is ft0, t0
+    returni(ctx, t0)
+
+.outOfBoundsTrunc:
+    throwException(OutOfBoundsTrunc)
+end)
+
+wasmOp(i32_trunc_u_f64, WasmI32TruncUF64, macro (ctx)
+    mloadd(ctx, m_operand, ft0)
+
+    moveii 0xbff0000000000000, t1, t0 # -1.0
+    fii2d t0, t1, ft1
+    bdltequn ft0, ft1, .outOfBoundsTrunc
+
+    moveii 0x41f0000000000000, t1, t0 # INT32_MIN * -2.0
+    fii2d t0, t1, ft1
+    bdgtequn ft0, ft1, .outOfBoundsTrunc
+
+    truncated2i ft0, t0
+    returni(ctx, t0)
+
+.outOfBoundsTrunc:
+    throwException(OutOfBoundsTrunc)
+end)
+
+slowWasmOp(i64_trunc_s_f32)
+slowWasmOp(i64_trunc_u_f32)
+slowWasmOp(i64_trunc_s_f64)
+slowWasmOp(i64_trunc_u_f64)
+
+wasmOp(i32_trunc_sat_f64_s, WasmI32TruncSatF64S, macro (ctx)
+    mloadd(ctx, m_operand, ft0)
+
+    moveii 0xc1e0000000200000, t1, t0 # INT32_MIN - 1.0
+    fii2d t0, t1, ft1
+    bdltequn ft0, ft1, .outOfBoundsTruncSatMinOrNaN
+
+    moveii 0x41e0000000000000, t1, t0 # -INT32_MIN
+    fii2d t0, t1, ft1
+    bdgtequn ft0, ft1, .outOfBoundsTruncSatMax
+
+    truncated2is ft0, t0
+    returni(ctx, t0)
+
+.outOfBoundsTruncSatMinOrNaN:
+    bdeq ft0, ft0, .outOfBoundsTruncSatMin
+    move 0, t0
+    returni(ctx, t0)
+
+.outOfBoundsTruncSatMax:
+    move (constexpr INT32_MAX), t0
+    returni(ctx, t0)
+
+.outOfBoundsTruncSatMin:
+    move (constexpr INT32_MIN), t0
+    returni(ctx, t0)
+end)
+
+wasmOp(i32_trunc_sat_f64_u, WasmI32TruncSatF64U, macro (ctx)
+    mloadd(ctx, m_operand, ft0)
+
+    moveii 0xbff0000000000000, t1, t0 # -1.0
+    fii2d t0, t1, ft1
+    bdltequn ft0, ft1, .outOfBoundsTruncSatMin
+
+    moveii 0x41f0000000000000, t1, t0 # INT32_MIN * -2.0
+    fii2d t0, t1, ft1
+    bdgtequn ft0, ft1, .outOfBoundsTruncSatMax
+
+    truncated2i ft0, t0
+    returni(ctx, t0)
+
+.outOfBoundsTruncSatMin:
+    move 0, t0
+    returni(ctx, t0)
+
+.outOfBoundsTruncSatMax:
+    move (constexpr UINT32_MAX), t0
+    returni(ctx, t0)
+end)
+
+slowWasmOp(i64_trunc_sat_f32_s)
+slowWasmOp(i64_trunc_sat_f32_u)
+slowWasmOp(i64_trunc_sat_f64_s)
+slowWasmOp(i64_trunc_sat_f64_u)
+
+# Extend ops
+
+wasmOp(i64_extend8_s, WasmI64Extend8S, macro(ctx)
+    mloadi(ctx, m_operand, t0)
+    sxb2i t0, t0
+    rshifti t0, 31, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_extend16_s, WasmI64Extend16S, macro(ctx)
+    mloadi(ctx, m_operand, t0)
+    sxh2i t0, t0
+    rshifti t0, 31, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(i64_extend32_s, WasmI64Extend16S, macro(ctx)
+    mloadi(ctx, m_operand, t0)
+    rshifti t0, 31, t1
+    return2i(ctx, t1, t0)
+end)
+

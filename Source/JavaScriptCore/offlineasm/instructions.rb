@@ -384,7 +384,8 @@ ARM_INSTRUCTIONS =
      "clrbp",
      "mvlbl",
      "globaladdr",
-     "sbci"
+     "sbci",
+     "moveii"
     ]
 
 ARM64_INSTRUCTIONS =
