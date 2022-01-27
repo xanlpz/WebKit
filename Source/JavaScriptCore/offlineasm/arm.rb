@@ -403,7 +403,15 @@ end
 
 def emitArmDoubleCompare(operands, code)
     $asm.puts "mov #{operands[2].armOperand}, \#0"
-    $asm.puts "vcmpe.f64 #{armOperands(operands[0..1])}"
+    $asm.puts "vcmp.f64 #{armOperands(operands[0..1])}"
+    $asm.puts "vmrs APSR_nzcv, FPSCR"
+    $asm.puts "it #{code}"
+    $asm.puts "mov#{code} #{operands[2].armOperand}, \#1"
+end
+
+def emitArmFloatCompare(operands, code)
+    $asm.puts "mov #{operands[2].armOperand}, \#0"
+    $asm.puts "vcmp.f32 #{operands[0].armSingle}, #{operands[1].armSingle}"
     $asm.puts "vmrs APSR_nzcv, FPSCR"
     $asm.puts "it #{code}"
     $asm.puts "mov#{code} #{operands[2].armOperand}, \#1"
@@ -772,14 +780,30 @@ class Instruction
             emitArmCompare(operands, "lt")
         when "cilteq", "cplteq", "cblteq"
             emitArmCompare(operands, "le")
-        when "cdgt"
-            emitArmDoubleCompare(operands, "gt")
-        when "cdgteq"
-            emitArmDoubleCompare(operands, "ge")
+        when "cfeq"
+            emitArmFloatCompare(operands, "eq")
+        when "cfnequn"
+            emitArmFloatCompare(operands, "ne")
+        when "cflt"
+            emitArmFloatCompare(operands, "mi")
+        when "cflteq"
+            emitArmFloatCompare(operands, "ls")
+        when "cfgt"
+            emitArmFloatCompare(operands, "gt")
+        when "cfgteq"
+            emitArmFloatCompare(operands, "ge")
+        when "cdeq"
+            emitArmDoubleCompare(operands, "eq")
+        when "cdnequn"
+            emitArmDoubleCompare(operands, "ne")
         when "cdlt"
             emitArmDoubleCompare(operands, "mi")
         when "cdlteq"
             emitArmDoubleCompare(operands, "ls")
+        when "cdgt"
+            emitArmDoubleCompare(operands, "gt")
+        when "cdgteq"
+            emitArmDoubleCompare(operands, "ge")
         when "tis", "tbs", "tps"
             emitArmTestSet(operands, "mi")
         when "tiz", "tbz", "tpz"
