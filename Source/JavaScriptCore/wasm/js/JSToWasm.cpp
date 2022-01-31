@@ -289,14 +289,7 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
                     jit.load64(jsParam, scratchReg);
                     jit.store64(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
 #else
-                    if (type.isI64()) {
-                        // We only have one scratch reg, so we have to do this sequentially.
-                        // FIXME: would be nice to reuse the logic in the MacroAssembler file.
-                        jit.load32(jsParam, scratchReg);
-                        jit.store32(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
-                        jit.load32(jsParam.withOffset(4), scratchReg);
-                        jit.store32(scratchReg, calleeFrame.withOffset(4 + wasmFrameConvention.params[i].offsetFromSP()));
-                    } else {
+                    if (type.isI64() || type.isF64()) {
                         jit.loadDouble(jsParam, fprScratch);
                         jit.storeDouble(fprScratch, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
                     }
