@@ -40,11 +40,8 @@ else
     error
 end
 
-if not ARMv7
-    const NumberOfWasmArgumentFPRs = 8
-else
-    const NumberOfWasmArgumentFPRs = 6
-end
+// FIXME: this is 0 for non hardfp ARMv7. Do we care?
+const NumberOfWasmArgumentFPRs = 8
 
 const NumberOfWasmArguments = NumberOfWasmArgumentGPRs + NumberOfWasmArgumentFPRs
 
@@ -108,10 +105,8 @@ macro forEachArgumentFPR(fn)
     fn((NumberOfWasmArgumentGPRs + 3) * 8, wfa3)
     fn((NumberOfWasmArgumentGPRs + 4) * 8, wfa4)
     fn((NumberOfWasmArgumentGPRs + 5) * 8, wfa5)
-    if not ARMv7
-        fn((NumberOfWasmArgumentGPRs + 6) * 8, wfa6)
-        fn((NumberOfWasmArgumentGPRs + 7) * 8, wfa7)
-    end
+    fn((NumberOfWasmArgumentGPRs + 6) * 8, wfa6)
+    fn((NumberOfWasmArgumentGPRs + 7) * 8, wfa7)
 end
 
 macro forEachArgumentGPRPair(fn)
