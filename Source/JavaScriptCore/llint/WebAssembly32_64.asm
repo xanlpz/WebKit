@@ -22,15 +22,11 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
-# - Working on instruction coverage, i32/f32 by far the most complete
-# - andf/orf need implementation for f32.{max,min} to work with equal values
-# - One return value.
 # - TODO:
 #       Support all ops
 #       multiple return values
-#       not enough scratch gpr registers (see WasmCallingConvention)
-#       stack arguments
-#       WasmMemory size does not fit on 32bit integer
+#       not enough scratch gpr registers (see WasmCallingConvention) (still a problem?)
+#       WasmMemory size does not fit on 32bit integer (only an issue if we want signaling mode)
 #       WasmToJS is mostly TODO
 #       atomic ops.
 
