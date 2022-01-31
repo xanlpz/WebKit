@@ -148,6 +148,10 @@ class FPRegisterID
             "d4"
         when "ft5", "wfa5"
             "d5"
+        when "ft6", "wfa6"
+            "d6"
+        when "ft7", "wfa7"
+            "d7"
         else
             raise "Bad register #{name} for ARM at #{codeOriginString}"
         end
