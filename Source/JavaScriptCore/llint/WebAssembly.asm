@@ -431,6 +431,12 @@ macro wasmOp(opcodeName, opcodeStruct, fn)
     unprefixedWasmOp(wasm_%opcodeName%, opcodeStruct, fn)
 end
 
+macro notImplementedWasmOp(opcodeName)
+    wasmOp(opcodeName, None, macro(ctx)
+      crash()
+    end)
+end
+
 # Same as unprefixedWasmOp, necessary for e.g. wasm_call
 macro unprefixedSlowWasmOp(opcodeName)
     unprefixedWasmOp(opcodeName, unusedOpcodeStruct, macro(ctx)
@@ -2373,7 +2379,7 @@ elsif ARM64E
         macro(t0GPR, mem, t2GPR, t5GPR, t1GPR) atomicxchgh t0GPR, mem, t0GPR end,
         macro(t0GPR, mem, t2GPR, t5GPR, t1GPR) atomicxchgi t0GPR, mem, t0GPR end,
         macro(t0GPR, mem, t2GPR, t5GPR, t1GPR) atomicxchgq t0GPR, mem, t0GPR end)
-else
+elsif ARM64 or RISCV64
     wasmAtomicBinaryRMWOpsWithWeakCAS(_add, Add,
         macro(t0GPR, t1GPR, t2GPR)
             addi t0GPR, t1GPR, t2GPR
@@ -2416,6 +2422,31 @@ else
         macro(t0GPR, t1GPR, t2GPR)
             xorq t0GPR, t1GPR, t2GPR
         end)
+else
+    notImplementedWasmOp(i64_atomic_rmw8_add_u)
+    notImplementedWasmOp(i64_atomic_rmw16_add_u)
+    notImplementedWasmOp(i64_atomic_rmw32_add_u)
+    notImplementedWasmOp(i64_atomic_rmw_add)
+    notImplementedWasmOp(i64_atomic_rmw8_sub_u)
+    notImplementedWasmOp(i64_atomic_rmw16_sub_u)
+    notImplementedWasmOp(i64_atomic_rmw32_sub_u)
+    notImplementedWasmOp(i64_atomic_rmw_sub)
+    notImplementedWasmOp(i64_atomic_rmw8_xchg_u)
+    notImplementedWasmOp(i64_atomic_rmw16_xchg_u)
+    notImplementedWasmOp(i64_atomic_rmw32_xchg_u)
+    notImplementedWasmOp(i64_atomic_rmw_xchg)
+    notImplementedWasmOp(i64_atomic_rmw8_and_u)
+    notImplementedWasmOp(i64_atomic_rmw16_and_u)
+    notImplementedWasmOp(i64_atomic_rmw32_and_u)
+    notImplementedWasmOp(i64_atomic_rmw_and)
+    notImplementedWasmOp(i64_atomic_rmw8_or_u)
+    notImplementedWasmOp(i64_atomic_rmw16_or_u)
+    notImplementedWasmOp(i64_atomic_rmw32_or_u)
+    notImplementedWasmOp(i64_atomic_rmw_or)
+    notImplementedWasmOp(i64_atomic_rmw8_xor_u)
+    notImplementedWasmOp(i64_atomic_rmw16_xor_u)
+    notImplementedWasmOp(i64_atomic_rmw32_xor_u)
+    notImplementedWasmOp(i64_atomic_rmw_xor)
 end
 
 macro wasmAtomicCompareExchangeOps(lowerCaseOpcode, upperCaseOpcode, fnb, fnh, fni, fnq)
@@ -2462,6 +2493,7 @@ macro wasmAtomicCompareExchangeOps(lowerCaseOpcode, upperCaseOpcode, fnb, fnh, f
     end)
 end
 
+if X86_64 or ARM64E or ARM64 or RISCV64
 # t0GPR => expected, t2GPR => value, mem => memory reference
 wasmAtomicCompareExchangeOps(_cmpxchg, Cmpxchg,
     macro(t0GPR, t2GPR, mem, t5GPR, t1GPR)
@@ -2559,6 +2591,12 @@ wasmAtomicCompareExchangeOps(_cmpxchg, Cmpxchg,
             move t1GPR, t0GPR
         end
     end)
+else
+    notImplementedWasmOp(i64_atomic_rmw8_cmpxchg_u)
+    notImplementedWasmOp(i64_atomic_rmw16_cmpxchg_u)
+    notImplementedWasmOp(i64_atomic_rmw32_cmpxchg_u)
+    notImplementedWasmOp(i64_atomic_rmw_cmpxchg)
+end
 
 wasmOp(atomic_fence, WasmDropKeep, macro(ctx)
     fence
