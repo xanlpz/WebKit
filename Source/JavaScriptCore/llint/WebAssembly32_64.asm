@@ -137,6 +137,44 @@ wasmStoreOp(store64, WasmStore64, 8, macro(srcMsw, srcLsw, addr)
     storei srcMsw, MswOffset[addr]
 end)
 
+wasmOp(ref_is_null, WasmRefIsNull, macro(ctx)
+    mload2i(ctx, m_ref, t1, t0) # t0 is unused
+    cieq t1, NullTag, t0
+    returni(ctx, t0)
+end)
+
+wasmOp(get_global, WasmGetGlobal, macro(ctx)
+    loadp Wasm::Instance::m_globals[wasmInstance], t0
+    wgetu(ctx, m_globalIndex, t1)
+    load2ia [t0, t1, 8], t0, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(set_global, WasmSetGlobal, macro(ctx)
+    loadp Wasm::Instance::m_globals[wasmInstance], t0
+    wgetu(ctx, m_globalIndex, t1)
+    mload2i(ctx, m_value, t3, t2)
+    store2ia t2, t3, [t0, t1, 8]
+    dispatch(ctx)
+end)
+
+wasmOp(get_global_portable_binding, WasmGetGlobalPortableBinding, macro(ctx)
+    loadp Wasm::Instance::m_globals[wasmInstance], t0
+    wgetu(ctx, m_globalIndex, t1)
+    loadp [t0, t1, 8], t0
+    load2ia [t0], t0, t1
+    return2i(ctx, t1, t0)
+end)
+
+wasmOp(set_global_portable_binding, WasmSetGlobalPortableBinding, macro(ctx)
+    loadp Wasm::Instance::m_globals[wasmInstance], t0
+    wgetu(ctx, m_globalIndex, t1)
+    mload2i(ctx, m_value, t3, t2)
+    loadp [t0, t1, 8], t0
+    store2ia t2, t3, [t0]
+    dispatch(ctx)
+end)
+
 # Opcodes that don't have the `b3op` entry in wasm.json. This should be kept in sync
 
 macro callDivRem(fn)
