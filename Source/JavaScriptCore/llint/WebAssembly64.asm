@@ -76,6 +76,44 @@ wasmStoreOp(store16, WasmStore16, 2, macro(value, mem) storeh value, mem end)
 wasmStoreOp(store32, WasmStore32, 4, macro(value, mem) storei value, mem end)
 wasmStoreOp(store64, WasmStore64, 8, macro(value, mem) storeq value, mem end)
 
+wasmOp(ref_is_null, WasmRefIsNull, macro(ctx)
+    mloadp(ctx, m_ref, t0)
+    cqeq t0, ValueNull, t0
+    returni(ctx, t0)
+end)
+
+wasmOp(get_global, WasmGetGlobal, macro(ctx)
+    loadp Wasm::Instance::m_globals[wasmInstance], t0
+    wgetu(ctx, m_globalIndex, t1)
+    loadq [t0, t1, 8], t0
+    returnq(ctx, t0)
+end)
+
+wasmOp(set_global, WasmSetGlobal, macro(ctx)
+    loadp Wasm::Instance::m_globals[wasmInstance], t0
+    wgetu(ctx, m_globalIndex, t1)
+    mloadq(ctx, m_value, t2)
+    storeq t2, [t0, t1, 8]
+    dispatch(ctx)
+end)
+
+wasmOp(get_global_portable_binding, WasmGetGlobalPortableBinding, macro(ctx)
+    loadp Wasm::Instance::m_globals[wasmInstance], t0
+    wgetu(ctx, m_globalIndex, t1)
+    loadq [t0, t1, 8], t0
+    loadq [t0], t0
+    returnq(ctx, t0)
+end)
+
+wasmOp(set_global_portable_binding, WasmSetGlobalPortableBinding, macro(ctx)
+    loadp Wasm::Instance::m_globals[wasmInstance], t0
+    wgetu(ctx, m_globalIndex, t1)
+    mloadq(ctx, m_value, t2)
+    loadq [t0, t1, 8], t0
+    storeq t2, [t0]
+    dispatch(ctx)
+end)
+
 # Opcodes that don't have the `b3op` entry in wasm.json. This should be kept in sync
 
 # i32 binary ops

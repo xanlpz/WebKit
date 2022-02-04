@@ -843,6 +843,8 @@ class Instruction
             $asm.puts "#{opcode[0..-2]} #{operands[2].armOperand}, #{operands[3].armOperand}, #{operands[0].armOperand}, #{operands[1].armOperand}"
         when "memfence"
             $asm.puts "dmb sy"
+        when "fence"
+            $asm.puts "dmb ish"
         when "clrbp"
             $asm.puts "bic #{operands[2].armOperand}, #{operands[0].armOperand}, #{operands[1].armOperand}"
         when "globaladdr"

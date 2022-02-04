@@ -77,12 +77,6 @@ else
     error
 end
 
-macro crashOn32BitPlatforms()
-if not JSVALUE64
-    crash()
-end
-end
-
 macro forEachArgumentGPR(fn)
     fn(0 * 8, wa0)
     fn(1 * 8, wa1)
@@ -170,7 +164,10 @@ macro checkSwitchToJITForPrologue(codeBlockRegister)
             btpz r0, .recover
             move r0, ws0
 
-            crashOn32BitPlatforms() # FIXME: Almost certainly not right
+if not JSVALUE64
+            # FIXME: The following is almost certainly not right on 32-bit platforms
+            crash()
+end
             forEachArgumentGPR(macro (offset, gpr)
                 loadp -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gpr
             end)
@@ -479,15 +476,14 @@ macro loadConstantOrVariable(ctx, index, loader)
     end)
 end
 
+if JSVALUE64
 macro mloadq(ctx, field, dst)
-    crashOn32BitPlatforms() # FIXME
     wgets(ctx, field, dst)
     loadConstantOrVariable(ctx, dst, macro (base, index, offset)
         loadq offset[base, index, 8], dst
     end)
 end
-
-if not JSVALUE64
+else
 macro mload2i(ctx, field, dstMsw, dstLsw)
     wgets(ctx, field, dstLsw)
     loadConstantOrVariable(ctx, dstLsw, macro (base, index, offset)
@@ -526,24 +522,13 @@ end
 
 # Typed returns
 
-macro returnp(ctx, value)
-    wgets(ctx, m_dst, t5)
 if JSVALUE64
-    storeq value, [cfr, t5, 8]
-else
-    store2ia value, 0, [cfr, t5, 8]
-end
-    dispatch(ctx)
-end
-
 macro returnq(ctx, value)
-    crashOn32BitPlatforms() # FIXME
     wgets(ctx, m_dst, t5)
     storeq value, [cfr, t5, 8]
     dispatch(ctx)
 end
-
-if not JSVALUE64
+else
 macro return2i(ctx, msw, lsw)
     wgets(ctx, m_dst, t5)
     store2ia lsw, msw, [cfr, t5, 8]
@@ -838,48 +823,6 @@ wasmOp(ret_void, WasmRetVoid, macro(ctx)
     doReturn()
 end)
 
-wasmOp(ref_is_null, WasmRefIsNull, macro(ctx)
-    mloadp(ctx, m_ref, t0)
-if JSVALUE64
-    cqeq t0, ValueNull, t0
-else
-    crash() # FIXME
-end
-    returni(ctx, t0)
-end)
-
-wasmOp(get_global, WasmGetGlobal, macro(ctx)
-    loadp Wasm::Instance::m_globals[wasmInstance], t0
-    wgetu(ctx, m_globalIndex, t1)
-    loadq [t0, t1, 8], t0
-    returnq(ctx, t0)
-end)
-
-wasmOp(set_global, WasmSetGlobal, macro(ctx)
-    loadp Wasm::Instance::m_globals[wasmInstance], t0
-    wgetu(ctx, m_globalIndex, t1)
-    mloadq(ctx, m_value, t2)
-    storeq t2, [t0, t1, 8]
-    dispatch(ctx)
-end)
-
-wasmOp(get_global_portable_binding, WasmGetGlobalPortableBinding, macro(ctx)
-    loadp Wasm::Instance::m_globals[wasmInstance], t0
-    wgetu(ctx, m_globalIndex, t1)
-    loadq [t0, t1, 8], t0
-    loadq [t0], t0
-    returnq(ctx, t0)
-end)
-
-wasmOp(set_global_portable_binding, WasmSetGlobalPortableBinding, macro(ctx)
-    loadp Wasm::Instance::m_globals[wasmInstance], t0
-    wgetu(ctx, m_globalIndex, t1)
-    mloadq(ctx, m_value, t2)
-    loadq [t0, t1, 8], t0
-    storeq t2, [t0]
-    dispatch(ctx)
-end)
-
 macro slowPathForWasmCall(ctx, slowPath, storeWasmInstance)
     callWasmCallSlowPath(
         slowPath,
@@ -1037,7 +980,11 @@ wasmOp(current_memory, WasmCurrentMemory, macro(ctx)
     loadp Wasm::Memory::m_handle[t0], t0
     loadp Wasm::MemoryHandle::m_size[t0], t0
     urshiftp 16, t0
-    returnp(ctx, t0)
+if JSVALUE64
+    returnq(ctx, t0)
+else
+    return2i(ctx, 0, t0)
+end
 end)
 
 wasmOp(select, WasmSelect, macro(ctx)
@@ -2142,16 +2089,20 @@ end)
 
 macro dropKeep(startOffset, drop, keep)
     lshifti 3, startOffset
+    lshifti 3, drop
+    lshifti 3, keep
     subp cfr, startOffset, startOffset
     negi drop
+if JSVALUE64
     sxi2q drop, drop
+end
 
 .copyLoop:
     btiz keep, .done
-    loadq [startOffset, drop, 8], t6
-    storeq t6, [startOffset]
-    subi 1, keep
-    subp 8, startOffset
+    loadp [startOffset, drop], t6
+    storep t6, [startOffset]
+    subi PtrSize, keep
+    subp PtrSize, startOffset
     jmp .copyLoop
 
 .done:
@@ -2664,16 +2615,17 @@ macro catchImpl(ctx, storeWasmInstance)
 
     lshifti 3, t2
     subp cfr, t2, t2
+    lshifti 3, t3
 
 .copyLoop:
     btiz t3, .done
-    loadq [t1], t6
-    storeq t6, [t2]
-    subi 1, t3
+    loadp [t1], t6
+    storep t6, [t2]
+    subi PtrSize, t3
     # FIXME: Use arm store-add/sub instructions in wasm LLInt catch
     # https://bugs.webkit.org/show_bug.cgi?id=231210
-    subp 8, t2
-    addp 8, t1
+    subp PtrSize, t2
+    addp PtrSize, t1
     jmp .copyLoop
 
 .done:
