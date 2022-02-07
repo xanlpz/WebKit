@@ -72,27 +72,24 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
         }
     };
 
-#if USE(JSVALUE64)
-    JSValueRegs valueRegs(GPRInfo::returnValueGPR);
-#else
-    JSValueRegs valueRegs(GPRInfo::returnValueGPR2, GPRInfo::returnValueGPR);
-#endif
     if (signature.returnsVoid())
-        jit.moveTrustedValue(jsUndefined(), valueRegs);
+        jit.moveTrustedValue(jsUndefined(), JSRInfo::returnValueJSR);
     else if (signature.returnCount() == 1) {
-        if (signature.returnType(0).isI64()) {
+        auto type = signature.returnType(0);
+        if (type.isI64()) {
+            JSValueRegs inputJSR = wasmFrameConvention.results[0].jsr();
             GPRReg wasmContextInstanceGPR = PinnedRegisterInfo::get().wasmContextInstancePointer;
-#if 0
             if (Context::useFastTLS()) {
-                wasmContextInstanceGPR = inputGPR == GPRInfo::argumentGPR1 ? GPRInfo::argumentGPR0 : GPRInfo::argumentGPR1;
+                wasmContextInstanceGPR = inputJSR.payloadGPR() == GPRInfo::argumentGPR1 ? GPRInfo::argumentGPR0 : GPRInfo::argumentGPR1;
                 static_assert(std::is_same_v<Wasm::Instance*, typename FunctionTraits<decltype(operationAllocateResultsArray)>::ArgumentType<1>>);
                 jit.loadWasmContextInstance(wasmContextInstanceGPR);
             }
-#endif
-            jit.setupArguments<decltype(operationConvertToBigInt)>(wasmContextInstanceGPR, wasmFrameConvention.results[0].reg());
+            jit.setupArguments<decltype(operationConvertToBigInt)>(wasmContextInstanceGPR, inputJSR);
             jit.callOperation(FunctionPtr<OperationPtrTag>(operationConvertToBigInt));
-        } else
-            boxWasmResult(jit, signature.returnType(0), wasmFrameConvention.results[0].reg().reg(), valueRegs);
+        } else if (type.isF32() || type.isF64())
+            boxWasmResult(jit, signature.returnType(0), wasmFrameConvention.results[0].reg().fpr(), JSRInfo::returnValueJSR);
+        else
+            boxWasmResult(jit, signature.returnType(0), wasmFrameConvention.results[0].jsr().payloadGPR(), JSRInfo::returnValueJSR);
     } else {
         IndexingType indexingType = ArrayWithUndecided;
 #if USE(JSVALUE64)
@@ -161,44 +158,35 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
 
                 GPRReg wasmContextInstanceGPR = PinnedRegisterInfo::get().wasmContextInstancePointer;
                 if (Context::useFastTLS()) {
-                    wasmContextInstanceGPR = GPRInfo::argumentGPR1;
+                    wasmContextInstanceGPR = CCallHelpers::preferredArgumentGPR<decltype(operationConvertToBigInt), 1>();
                     static_assert(std::is_same_v<Wasm::Instance*, typename FunctionTraits<decltype(operationAllocateResultsArray)>::ArgumentType<1>>);
                     jit.loadWasmContextInstance(wasmContextInstanceGPR);
                 }
 
+                constexpr JSValueRegs valueJSR = CCallHelpers::preferredArgumentJSR<decltype(operationConvertToBigInt), 2>();
+
                 if (loc.isReg()) {
-#if USE(JSVALUE64)
-                    jit.load64(CCallHelpers::Address(CCallHelpers::stackPointerRegister, savedResultRegisters.find(loc.reg())->offset() + wasmFrameConvention.headerAndArgumentStackSizeInBytes), GPRInfo::argumentGPR0);
+#if USE(JSVALUE64) // TODO: do these address formulas really need to differ?
+                    auto addr = CCallHelpers::Address(CCallHelpers::stackPointerRegister, savedResultRegisters.find(loc.reg())->offset() + wasmFrameConvention.headerAndArgumentStackSizeInBytes);
 #else
-                    jit.loadPair32(CCallHelpers::Address(CCallHelpers::stackPointerRegister, savedResultRegisters.find(loc.reg().reg())->offset() + wasmFrameConvention.headerAndArgumentStackSizeInBytes), GPRInfo::argumentGPR1, GPRInfo::argumentGPR0);
+                    auto addr = CCallHelpers::Address(CCallHelpers::stackPointerRegister, savedResultRegisters.find(loc.reg().reg())->offset() + wasmFrameConvention.headerAndArgumentStackSizeInBytes);
 #endif
-                } else {
-                    auto location = CCallHelpers::Address(CCallHelpers::stackPointerRegister, loc.offsetFromSP());
-#if USE(JSVALUE64)
-                    jit.load64ToReg(location, GPRInfo::argumentGPR0);
-#else
-                    jit.loadPair32(location, GPRInfo::argumentGPR1, GPRInfo::argumentGPR0);
-#endif
-                }
-#if USE(JSVALUE64)
-                JSValueRegs argumentRegs(GPRInfo::argumentGPR0);
-#else
-                JSValueRegs argumentRegs(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1);
-#endif
-                jit.setupArguments<decltype(operationConvertToBigInt)>(wasmContextInstanceGPR, argumentRegs);
+                    jit.loadValue(addr, valueJSR);
+                } else
+                    jit.loadValue(CCallHelpers::Address(CCallHelpers::stackPointerRegister, loc.offsetFromSP()), valueJSR);
+
+                jit.setupArguments<decltype(operationConvertToBigInt)>(wasmContextInstanceGPR, valueJSR);
                 jit.callOperation(FunctionPtr<OperationPtrTag>(operationConvertToBigInt));
                 if (loc.isReg())
-                    jit.storeValue(JSValueRegs { GPRInfo::returnValueGPR }, CCallHelpers::Address(CCallHelpers::stackPointerRegister, savedResultRegisters.find(loc.reg().reg())->offset() + wasmFrameConvention.headerAndArgumentStackSizeInBytes));
-                else {
-                    auto location = CCallHelpers::Address(CCallHelpers::stackPointerRegister, loc.offsetFromSP());
-                    jit.storeValue(JSValueRegs { GPRInfo::returnValueGPR }, location);
-                }
+                    jit.storeValue(JSRInfo::returnValueJSR, CCallHelpers::Address(CCallHelpers::stackPointerRegister, savedResultRegisters.find(loc.reg().reg())->offset() + wasmFrameConvention.headerAndArgumentStackSizeInBytes));
+                else
+                    jit.storeValue(JSRInfo::returnValueJSR, CCallHelpers::Address(CCallHelpers::stackPointerRegister, loc.offsetFromSP()));
             }
         }
 
         GPRReg wasmContextInstanceGPR = PinnedRegisterInfo::get().wasmContextInstancePointer;
         if (Context::useFastTLS()) {
-            wasmContextInstanceGPR = GPRInfo::argumentGPR1;
+            wasmContextInstanceGPR = CCallHelpers::preferredArgumentGPR<decltype(operationAllocateResultsArray), 1>();
             static_assert(std::is_same_v<Wasm::Instance*, typename FunctionTraits<decltype(operationAllocateResultsArray)>::ArgumentType<1>>);
             jit.loadWasmContextInstance(wasmContextInstanceGPR);
         }
@@ -260,14 +248,14 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
 
         CCallHelpers::Address calleeFrame = CCallHelpers::Address(MacroAssembler::stackPointerRegister, 0);
 
-#if !CPU(ARM)
+#if USE(JSVALUE64)
         // We're going to set the pinned registers after this. So
         // we can use this as a scratch for now since we saved it above.
         GPRReg scratchReg = pinnedRegs.baseMemoryPointer;
-#else
-        GPRReg scratchReg = GPRInfo::regCS1; // regCS1 is the LLInt PB, should be safe to use it just for the argument setup.
-#endif
+#elif USE(JSVALUE32_64)
+        // FIXME: I don't think this is right in it's current form
         FPRReg fprScratch = wasmCallingConvention().fprArgs[0].fpr(); // We'll only use this for stack arguments, should be safe to use as scratch.
+#endif
 
         if (!Context::useFastTLS()) {
             jit.loadPtr(CCallHelpers::Address(GPRInfo::callFrameRegister, JSCallingConvention::instanceStackOffset), wasmContextInstanceGPR);
@@ -280,46 +268,30 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
             Type type = signature.argument(i);
             CCallHelpers::Address jsParam(GPRInfo::callFrameRegister, jsFrameConvention.params[i].offsetFromFP());
             if (wasmFrameConvention.params[i].isStackArgument()) {
-                if (type.isI32() || type.isF32()) {
-                    // FIXME: don't we need to use loadDouble/storeDouble here for 32bit?
-                    jit.load32(jsParam, scratchReg);
-                    jit.store32(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
-                } else {
 #if USE(JSVALUE64)
                     jit.load64(jsParam, scratchReg);
                     jit.store64(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
 #else
-                    if (type.isI64() || type.isF64()) {
-                        jit.loadDouble(jsParam, fprScratch);
-                        jit.storeDouble(fprScratch, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
-                    }
+                    jit.loadDouble(jsParam, fprScratch);
+                    jit.storeDouble(fprScratch, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
 #endif
-                }
             } else {
+
 #if USE(JSVALUE64)
                 if (type.isI32() || type.isF32())
                     jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
-#else
-                if (type.isI32()) {
-                    // We are going to pass i32 arguments as if they
-                    // were i64, because the wasm prologue does not
-                    // differentiate between them and assumes every
-                    // integer value to take 64bits in memory.
-                    jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().hi());
-                    jit.move(MacroAssembler::TrustedImmPtr(nullptr), wasmFrameConvention.params[i].reg().lo().gpr());
-                } else if (type.isF32())
-                    jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
-#endif
-                else {
-#if USE(JSVALUE64)
+                else
                     jit.load64ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
-#else
-                    if (type.isI64())
-                        jit.load64ToPairRegs(jsParam, wasmFrameConvention.params[i].reg().hi(), wasmFrameConvention.params[i].reg().lo());
-                    else
-                        jit.loadDouble(jsParam, wasmFrameConvention.params[i].reg().fpr());
+#elif USE(JSVALUE32_64)
+                if (type.isF32())
+                    jit.loadFloat(jsParam, wasmFrameConvention.params[i].fpr());
+                else if (type.isF64())
+                    jit.loadDouble(jsParam, wasmFrameConvention.params[i].fpr());
+                else if (type.isI32())
+                    jit.load32(jsParam, wasmFrameConvention.params[i].jsr().payloadGPR());
+                else
+                    jit.loadValue(jsParam, wasmFrameConvention.params[i].jsr());
 #endif
-                }
             }
         }
     }

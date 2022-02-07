@@ -88,8 +88,8 @@ class WasmCallingConvention {
 public:
     static constexpr unsigned headerSizeInBytes = CallFrame::headerSizeInRegisters * sizeof(Register);
 
-    WasmCallingConvention(Vector<Reg>&& gprs, Vector<Reg>&& fprs, Vector<GPRReg>&& scratches, RegisterSet&& calleeSaves, RegisterSet&& callerSaves)
-        : gprArgs(WTFMove(gprs))
+    WasmCallingConvention(Vector<JSValueRegs>&& jsrs, Vector<Reg>&& fprs, Vector<GPRReg>&& scratches, RegisterSet&& calleeSaves, RegisterSet&& callerSaves)
+        : jsrArgs(WTFMove(jsrs))
         , fprArgs(WTFMove(fprs))
         , prologueScratchGPRs(WTFMove(scratches))
         , calleeSaveRegisters(WTFMove(calleeSaves))
@@ -99,7 +99,8 @@ public:
     WTF_MAKE_NONCOPYABLE(WasmCallingConvention);
 
 private:
-    ArgumentLocation marshallLocationImpl(CallRole role, const Vector<Reg>& regArgs, size_t& count, size_t& stackOffset) const
+    template<typename RegType>
+    ArgumentLocation marshallLocationImpl(CallRole role, const Vector<RegType>& regArgs, size_t& count, size_t& stackOffset) const
     {
         if (count < regArgs.size())
             return ArgumentLocation::reg(regArgs[count++]);
@@ -110,49 +111,17 @@ private:
         return result;
     }
 
-#if USE(JSVALUE32_64)
-    ArgumentLocation marshallLocationImpl32(CallRole role, TypeKind typeKind, const Vector<Reg>& regArgs, size_t& count, size_t& stackOffset, size_t& gprIndex, bool isArgumentType) const
-    {
-        // We always use two registers for I32/I64 arguments on
-        // 32bit. It's a bit wasteful but it prevents us from changing
-        // tons of code in wasm, and it really does not matter much.
-        // Other than that, I64 return values always need two
-        // registers, obviously.
-        if (isArgumentType || typeKind == TypeKind::I64) {
-            if (gprIndex + 1 < regArgs.size()) {
-                uint first = gprIndex;
-                uint second = gprIndex + 1;
-                gprIndex += 2;
-                count++;
-                return ArgumentLocation(regArgs[first], regArgs[second]);
-            }
-        } else {
-            if (gprIndex < regArgs.size()) {
-                count++;
-                return ArgumentLocation::reg(regArgs[gprIndex++]);
-            }
-        }
-        count++;
-        ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
-        stackOffset += sizeof(Register);
-        return result;
-    }
-#endif
-
     ArgumentLocation marshallLocation(CallRole role, Type valueType, size_t& gpArgumentCount, size_t& fpArgumentCount, size_t& stackOffset, size_t& gprIndex, bool isArgumentType = false) const
     {
         ASSERT(isValueType(valueType));
         switch (valueType.kind) {
         case TypeKind::I64:
         case TypeKind::I32:
-#if USE(JSVALUE32_64)
-            return marshallLocationImpl32(role, valueType.kind, gprArgs, gpArgumentCount, stackOffset, gprIndex, isArgumentType);
-#endif
         case TypeKind::Funcref:
         case TypeKind::Externref:
         case TypeKind::Ref:
         case TypeKind::RefNull:
-            return marshallLocationImpl(role, gprArgs, gpArgumentCount, stackOffset);
+            return marshallLocationImpl(role, jsrArgs, gpArgumentCount, stackOffset);
         case TypeKind::F32:
         case TypeKind::F64:
             return marshallLocationImpl(role, fprArgs, fpArgumentCount, stackOffset);
@@ -198,7 +167,7 @@ public:
         return result;
     }
 
-    const Vector<Reg> gprArgs;
+    const Vector<JSValueRegs> jsrArgs;
     const Vector<Reg> fprArgs;
     const Vector<GPRReg> prologueScratchGPRs;
     const RegisterSet calleeSaveRegisters;

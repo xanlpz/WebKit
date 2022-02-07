@@ -468,40 +468,40 @@ JSC_DEFINE_JIT_OPERATION(operationWasmUnwind, void, (CallFrame* callFrame))
     ASSERT(!!vm.callFrameForCatch);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationConvertToI64, int64_t, (CallFrame* callFrame, JSValue v))
+JSC_DEFINE_JIT_OPERATION(operationConvertToI64, int64_t, (CallFrame* callFrame, EncodedJSValue v))
 {
     // FIXME: Consider passing JSWebAssemblyInstance* instead.
     // https://bugs.webkit.org/show_bug.cgi?id=203206
     VM& vm = callFrame->deprecatedVM();
     NativeCallFrameTracer tracer(vm, callFrame);
-    return v.toBigInt64(callFrame->lexicalGlobalObject(vm));
+    return JSValue::decode(v).toBigInt64(callFrame->lexicalGlobalObject(vm));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationConvertToF64, double, (CallFrame* callFrame, JSValue v))
+JSC_DEFINE_JIT_OPERATION(operationConvertToF64, double, (CallFrame* callFrame, EncodedJSValue v))
 {
     // FIXME: Consider passing JSWebAssemblyInstance* instead.
     // https://bugs.webkit.org/show_bug.cgi?id=203206
     VM& vm = callFrame->deprecatedVM();
     NativeCallFrameTracer tracer(vm, callFrame);
-    return v.toNumber(callFrame->lexicalGlobalObject(vm));
+    return JSValue::decode(v).toNumber(callFrame->lexicalGlobalObject(vm));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationConvertToI32, int32_t, (CallFrame* callFrame, JSValue v))
+JSC_DEFINE_JIT_OPERATION(operationConvertToI32, int32_t, (CallFrame* callFrame, EncodedJSValue v))
 {
     // FIXME: Consider passing JSWebAssemblyInstance* instead.
     // https://bugs.webkit.org/show_bug.cgi?id=203206
     VM& vm = callFrame->deprecatedVM();
     NativeCallFrameTracer tracer(vm, callFrame);
-    return v.toInt32(callFrame->lexicalGlobalObject(vm));
+    return JSValue::decode(v).toInt32(callFrame->lexicalGlobalObject(vm));
 }
 
-JSC_DEFINE_JIT_OPERATION(operationConvertToF32, float, (CallFrame* callFrame, JSValue v))
+JSC_DEFINE_JIT_OPERATION(operationConvertToF32, float, (CallFrame* callFrame, EncodedJSValue v))
 {
     // FIXME: Consider passing JSWebAssemblyInstance* instead.
     // https://bugs.webkit.org/show_bug.cgi?id=203206
     VM& vm = callFrame->deprecatedVM();
     NativeCallFrameTracer tracer(vm, callFrame);
-    return static_cast<float>(v.toNumber(callFrame->lexicalGlobalObject(vm)));
+    return static_cast<float>(JSValue::decode(v).toNumber(callFrame->lexicalGlobalObject(vm)));
 }
 
 JSC_DEFINE_JIT_OPERATION(operationConvertToBigInt, EncodedJSValue, (CallFrame* callFrame, Instance* instance, EncodedWasmValue value))
