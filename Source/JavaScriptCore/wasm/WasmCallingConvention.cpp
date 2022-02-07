@@ -51,9 +51,18 @@ const WasmCallingConvention& wasmCallingConvention()
     static LazyNeverDestroyed<WasmCallingConvention> staticWasmCallingConvention;
     static std::once_flag staticWasmCallingConventionFlag;
     std::call_once(staticWasmCallingConventionFlag, [] () {
-        Vector<Reg> gprArgumentRegisters(GPRInfo::numberOfArgumentRegisters);
-        for (unsigned i = 0; i < GPRInfo::numberOfArgumentRegisters; ++i)
-            gprArgumentRegisters[i] = GPRInfo::toArgumentRegister(i);
+#if USE(JSVALUE64) // One value per GPR
+        constexpr unsigned numberOfArgumentJSRs = GPRInfo::numberOfArgumentRegisters;
+#elif USE(JSVALUE32_64) // One value per consecutive GPR pair
+        constexpr unsigned numberOfArgumentJSRs = GPRInfo::numberOfArgumentRegisters / 2;
+#endif
+        Vector<JSValueRegs> jsrArgumentRegisters(numberOfArgumentJSRs);
+        for (unsigned i = 0; i < numberOfArgumentJSRs; ++i)
+#if USE(JSVALUE64)
+            jsrArgumentRegisters[i] = JSValueRegs { GPRInfo::toArgumentRegister(i) };
+#elif USE(JSVALUE32_64)
+            jsrArgumentRegisters[i] = JSValueRegs { GPRInfo::toArgumentRegister(2 * i + 1), GPRInfo::toArgumentRegister(2 * i) };
+#endif
 
         Vector<Reg> fprArgumentRegisters(FPRInfo::numberOfArgumentRegisters);
         for (unsigned i = 0; i < FPRInfo::numberOfArgumentRegisters; ++i)
@@ -65,8 +74,12 @@ const WasmCallingConvention& wasmCallingConvention()
         scratch.exclude(RegisterSet::macroScratchRegisters());
         scratch.exclude(RegisterSet::reservedHardwareRegisters());
         scratch.exclude(RegisterSet::stackRegisters());
-        for (Reg reg : gprArgumentRegisters)
-            scratch.clear(reg);
+        for (JSValueRegs jsr : jsrArgumentRegisters) {
+            scratch.clear(jsr.payloadGPR());
+#if USE(JSVALUE32_64)
+            scratch.clear(jsr.tagGPR());
+#endif
+        }
 
         Vector<GPRReg> scratchGPRs;
         for (Reg reg : scratch)
@@ -76,7 +89,7 @@ const WasmCallingConvention& wasmCallingConvention()
         RegisterSet callerSaveRegisters = RegisterSet::allRegisters();
         callerSaveRegisters.exclude(RegisterSet::calleeSaveRegisters());
 
-        staticWasmCallingConvention.construct(WTFMove(gprArgumentRegisters), WTFMove(fprArgumentRegisters), WTFMove(scratchGPRs), RegisterSet::calleeSaveRegisters(), WTFMove(callerSaveRegisters));
+        staticWasmCallingConvention.construct(WTFMove(jsrArgumentRegisters), WTFMove(fprArgumentRegisters), WTFMove(scratchGPRs), RegisterSet::calleeSaveRegisters(), WTFMove(callerSaveRegisters));
     });
 
     return staticWasmCallingConvention;

@@ -66,35 +66,31 @@ public:
     ValueRegisters()
         : m_hi(InvalidGPRReg)
         , m_lo(InvalidGPRReg)
-        , m_kind(TypeKind::Void)
     {
     }
 
     ValueRegisters(Reg hi, Reg lo)
         : m_hi(hi)
         , m_lo(lo)
-        , m_kind(TypeKind::I64)
     {
     }
 
     ValueRegisters(Reg gpr)
         : m_hi(gpr)
         , m_lo(InvalidGPRReg)
-        , m_kind(TypeKind::I32)
     {
     }
 
     // FIXME: this can probably be optimized to only have one register when needed.
-    Reg reg() const { ASSERT(m_kind == TypeKind::I32); return m_hi; }
-    GPRReg gpr() const { ASSERT(m_kind == TypeKind::I32); return m_hi.gpr(); }
-    FPRReg fpr() const { /*ASSERT(m_kind == TypeKind::F32 || m_kind == TypeKind::F64);*/ return m_hi.fpr(); } //FIXME: we only use m_hi?
-    Reg hi() const { ASSERT(m_kind == TypeKind::I64); return m_hi; }
-    Reg lo() const { ASSERT(m_kind == TypeKind::I64); return m_lo; }
+    Reg reg() const { return m_hi; }
+    GPRReg gpr() const { return m_hi.gpr(); }
+    FPRReg fpr() const { return m_hi.fpr(); } //FIXME: we only use m_hi?
+    Reg hi() const { return m_hi; }
+    Reg lo() const { return m_lo; }
 
 private:
     Reg m_hi;
     Reg m_lo;
-    TypeKind m_kind;
 };
 #endif
 
@@ -144,6 +140,11 @@ public:
         return ValueLocation(reg);
     }
 
+    static ValueLocation reg(JSValueRegs reg)
+    {
+        return ValueLocation(ValueRegisters(reg.tagGPR(), reg.payloadGPR()));
+    }
+
     static ValueLocation stack(intptr_t offsetFromFP)
     {
         ValueLocation result;
@@ -172,6 +173,7 @@ public:
 
     GPRReg gpr() const { return reg().gpr(); }
     FPRReg fpr() const { return reg().fpr(); }
+    JSValueRegs jsr() const { return JSValueRegs{reg().hi().gpr(), reg().lo().gpr()}; }
 
     bool isStack() const { return kind() == Stack; }
 
