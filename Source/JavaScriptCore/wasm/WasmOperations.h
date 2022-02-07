@@ -55,10 +55,10 @@ JSC_DECLARE_JIT_OPERATION(operationWasmTriggerTierUpNow, void, (Instance*, uint3
 #endif
 JSC_DECLARE_JIT_OPERATION(operationWasmUnwind, void, (CallFrame*));
 
-JSC_DECLARE_JIT_OPERATION(operationConvertToI64, int64_t, (CallFrame*, JSValue));
-JSC_DECLARE_JIT_OPERATION(operationConvertToF64, double, (CallFrame*, JSValue));
-JSC_DECLARE_JIT_OPERATION(operationConvertToI32, int32_t, (CallFrame*, JSValue));
-JSC_DECLARE_JIT_OPERATION(operationConvertToF32, float, (CallFrame*, JSValue));
+JSC_DECLARE_JIT_OPERATION(operationConvertToI64, int64_t, (CallFrame*, EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationConvertToF64, double, (CallFrame*, EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationConvertToI32, int32_t, (CallFrame*, EncodedJSValue));
+JSC_DECLARE_JIT_OPERATION(operationConvertToF32, float, (CallFrame*, EncodedJSValue));
 
 JSC_DECLARE_JIT_OPERATION(operationConvertToBigInt, EncodedJSValue, (CallFrame*, Instance*, EncodedWasmValue));
 
