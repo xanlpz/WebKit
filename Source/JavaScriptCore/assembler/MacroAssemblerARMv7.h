@@ -2101,11 +2101,10 @@ public:
     ALWAYS_INLINE Call call(RegisterID target, RegisterID callTag) { return UNUSED_PARAM(callTag), call(target, NoPtrTag); }
     ALWAYS_INLINE Call call(Address address, RegisterID callTag) { return UNUSED_PARAM(callTag), call(address, NoPtrTag); }
 
-    // FIXME: is this right, etc.
     ALWAYS_INLINE void callOperation(const FunctionPtr<OperationPtrTag> operation)
     {
-        move(TrustedImmPtr(operation.executableAddress()), dataTempRegister);
-        call(dataTempRegister, OperationPtrTag);
+        move(TrustedImmPtr(operation.executableAddress()), addressTempRegister);
+        call(addressTempRegister, OperationPtrTag);
     }
     
     ALWAYS_INLINE void ret()

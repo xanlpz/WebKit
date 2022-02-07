@@ -338,7 +338,7 @@ private:
             return m_normalizedArguments[index];
 
         const auto& callingConvention = wasmCallingConvention();
-        const uint32_t gprCount = callingConvention.gprArgs.size();
+        const uint32_t gprCount = callingConvention.jsrArgs.size();
         const uint32_t fprCount = callingConvention.fprArgs.size();
         return virtualRegisterForLocal(index - m_codeBlock->m_numArguments + gprCount + fprCount + numberOfLLIntCalleeSaveRegisters);
     }
@@ -592,7 +592,7 @@ auto LLIntGenerator::callInformationForCaller(const Signature& signature) -> LLI
     const auto initialStackSize = m_stackSize;
 
     const auto& callingConvention = wasmCallingConvention();
-    const uint32_t gprCount = callingConvention.gprArgs.size();
+    const uint32_t gprCount = callingConvention.jsrArgs.size();
     const uint32_t fprCount = callingConvention.fprArgs.size();
 
     uint32_t stackCount = 0;
@@ -734,7 +734,7 @@ auto LLIntGenerator::callInformationForCallee(const Signature& signature) -> Vec
     m_results.reserveInitialCapacity(signature.returnCount());
 
     const auto& callingConvention = wasmCallingConvention();
-    const uint32_t gprCount = callingConvention.gprArgs.size();
+    const uint32_t gprCount = callingConvention.jsrArgs.size();
     const uint32_t fprCount = callingConvention.fprArgs.size();
 
     uint32_t gprIndex = 0;
@@ -743,7 +743,6 @@ auto LLIntGenerator::callInformationForCallee(const Signature& signature) -> Vec
     const uint32_t maxGPRIndex = gprCount;
     const uint32_t maxFPRIndex = maxGPRIndex + fprCount;
 
-    // FIXME: this is wrong for 64bit values in 32bit archs.
     for (uint32_t i = 0; i < signature.returnCount(); i++) {
         switch (signature.returnType(i).kind) {
         case TypeKind::I32:
@@ -781,7 +780,7 @@ auto LLIntGenerator::addArguments(const Signature& signature) -> PartialResult
     m_normalizedArguments.resize(m_codeBlock->m_numArguments);
 
     const auto& callingConvention = wasmCallingConvention();
-    const uint32_t gprCount = callingConvention.gprArgs.size();
+    const uint32_t gprCount = callingConvention.jsrArgs.size();
     const uint32_t fprCount = callingConvention.fprArgs.size();
     const uint32_t maxGPRIndex = gprCount;
     const uint32_t maxFPRIndex = gprCount + fprCount;
@@ -800,24 +799,10 @@ auto LLIntGenerator::addArguments(const Signature& signature) -> PartialResult
             m_normalizedArguments[index] = virtualRegisterForArgumentIncludingThis(stackIndex++);
     };
 
-#if USE(JSVALUE32_64)
-    const auto addArgument32 = [&](uint32_t index, uint32_t& count, uint32_t max) {
-        if (count < max) {
-            m_normalizedArguments[index] = registerArguments[index];
-            count += 2;
-        } else
-            m_normalizedArguments[index] = virtualRegisterForArgumentIncludingThis(stackIndex++);
-    };
-#endif
-
     for (uint32_t i = 0; i < signature.argumentCount(); i++) {
         switch (signature.argument(i).kind) {
         case TypeKind::I32:
         case TypeKind::I64:
-#if USE(JSVALUE32_64)
-            addArgument32(i, gprIndex, maxGPRIndex);
-            break;
-#endif
         case TypeKind::Externref:
         case TypeKind::Funcref:
         case TypeKind::RefNull:
@@ -976,7 +961,7 @@ auto LLIntGenerator::addLoop(BlockSignature signature, Stack& enclosingStack, Co
         osrEntryData.append(m_normalizedArguments[i]);
 
     const auto& callingConvention = wasmCallingConvention();
-    const uint32_t gprCount = callingConvention.gprArgs.size();
+    const uint32_t gprCount = callingConvention.jsrArgs.size();
     const uint32_t fprCount = callingConvention.fprArgs.size();
     for (uint32_t i = gprCount + fprCount + numberOfLLIntCalleeSaveRegisters; i < m_codeBlock->m_numVars; i++)
         osrEntryData.append(virtualRegisterForLocal(i));

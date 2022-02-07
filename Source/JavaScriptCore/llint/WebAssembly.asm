@@ -31,11 +31,11 @@ if HAVE_FAST_TLS
 end
 
 if X86_64
-    const NumberOfWasmArgumentGPRs = 6
+    const NumberOfWasmArgumentJSRs = 6
 elsif ARM64 or ARM64E or RISCV64
-    const NumberOfWasmArgumentGPRs = 8
+    const NumberOfWasmArgumentJSRs = 8
 elsif ARMv7
-    const NumberOfWasmArgumentGPRs = 4
+    const NumberOfWasmArgumentJSRs = 2
 else
     error
 end
@@ -43,7 +43,7 @@ end
 // FIXME: this is 0 for non hardfp ARMv7. Do we care?
 const NumberOfWasmArgumentFPRs = 8
 
-const NumberOfWasmArguments = NumberOfWasmArgumentGPRs + NumberOfWasmArgumentFPRs
+const NumberOfWasmArguments = NumberOfWasmArgumentJSRs + NumberOfWasmArgumentFPRs
 
 # All callee saves must match the definition in WasmCallee.cpp
 
@@ -77,32 +77,12 @@ else
     error
 end
 
-macro forEachArgumentGPR(fn)
-    fn(0 * 8, wa0)
-    fn(1 * 8, wa1)
-    fn(2 * 8, wa2)
-    fn(3 * 8, wa3)
-    if not ARMv7
-        fn(4 * 8, wa4)
-        fn(5 * 8, wa5)
-        if ARM64 or ARM64E
-            fn(6 * 8, wa6)
-            fn(7 * 8, wa7)
-        end
-    end
-end
+# Helper macros
 
-macro forEachArgumentFPR(fn)
-    fn((NumberOfWasmArgumentGPRs + 0) * 8, wfa0)
-    fn((NumberOfWasmArgumentGPRs + 1) * 8, wfa1)
-    fn((NumberOfWasmArgumentGPRs + 2) * 8, wfa2)
-    fn((NumberOfWasmArgumentGPRs + 3) * 8, wfa3)
-    fn((NumberOfWasmArgumentGPRs + 4) * 8, wfa4)
-    fn((NumberOfWasmArgumentGPRs + 5) * 8, wfa5)
-    fn((NumberOfWasmArgumentGPRs + 6) * 8, wfa6)
-    fn((NumberOfWasmArgumentGPRs + 7) * 8, wfa7)
-end
-
+# On JSVALUE64 (PtrSize == 8), each 64-bit argument GPR holds one whole Wasm
+# value. On JSVALUE32_64 (PtrSize == 4), a consecutive pair of even/odd
+# numbered GPRs hold a single Wasm value (even if that value is i32/f32).
+# Enumerating GPRs as pairs then allows us to handle both cases nicely.
 macro forEachArgumentGPRPair(fn)
     fn(0 * PtrSize, wa0, wa1)
     fn(2 * PtrSize, wa2, wa3)
@@ -114,7 +94,17 @@ macro forEachArgumentGPRPair(fn)
     end
 end
 
-# Helper macros
+macro forEachArgumentFPR(fn)
+    fn((NumberOfWasmArgumentJSRs + 0) * 8, wfa0)
+    fn((NumberOfWasmArgumentJSRs + 1) * 8, wfa1)
+    fn((NumberOfWasmArgumentJSRs + 2) * 8, wfa2)
+    fn((NumberOfWasmArgumentJSRs + 3) * 8, wfa3)
+    fn((NumberOfWasmArgumentJSRs + 4) * 8, wfa4)
+    fn((NumberOfWasmArgumentJSRs + 5) * 8, wfa5)
+    fn((NumberOfWasmArgumentJSRs + 6) * 8, wfa6)
+    fn((NumberOfWasmArgumentJSRs + 7) * 8, wfa7)
+end
+
 # FIXME: Eventually this should be unified with the JS versions
 # https://bugs.webkit.org/show_bug.cgi?id=203656
 
@@ -164,12 +154,15 @@ macro checkSwitchToJITForPrologue(codeBlockRegister)
             btpz r0, .recover
             move r0, ws0
 
-if not JSVALUE64
-            # FIXME: The following is almost certainly not right on 32-bit platforms
-            crash()
+            forEachArgumentGPRPair(macro (offset, gprLo, gprHi)
+                # These are 64-bit virtual registers.
+if JSVALUE64
+                loadp -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprLo
+                loadp -offset - 16 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprHi
+else
+                loadp -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprHi
+                loadp -offset - 12 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprLo
 end
-            forEachArgumentGPR(macro (offset, gpr)
-                loadp -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gpr
             end)
 
             forEachArgumentFPR(macro (offset, fpr)
@@ -331,7 +324,7 @@ if ARMv7
     move ws1, sp
 else
     subp cfr, ws1, sp
-end        
+end
 end
 
 macro wasmPrologue(codeBlockGetter, codeBlockSetter, loadWasmInstance)
@@ -373,7 +366,7 @@ if JSVALUE64
         storeq gprLo, -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
         storeq gprHi, -offset - 16 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
 else
-        # On 32-bit platforms, store a pairs of 2 GPRs together
+        # On 32-bit platforms, store a pair of 2 GPRs together
         storei gprHi, -offset -  4 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
         storei gprLo, -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
 end
@@ -863,8 +856,15 @@ end
             reloadMemoryRegistersFromInstance(targetWasmInstance, wa0, wa1)
 
             # Load registers from stack
-            forEachArgumentGPR(macro (offset, gpr) # FIXME: does not look right on 32-bit
-                loadq CallFrameHeaderSize + 8 + offset[sp, ws1, 8], gpr
+            forEachArgumentGPRPair(macro (offset, gprLo, gprHi)
+                # These are 64-bit virtual registers.
+if JSVALUE64
+                loadq CallFrameHeaderSize +  8 + offset[sp, ws1, 8], gprLo
+                loadq CallFrameHeaderSize + 16 + offset[sp, ws1, 8], gprHi
+else
+                loadi CallFrameHeaderSize +  8 + offset[sp, ws1, 8], gprLo
+                loadi CallFrameHeaderSize + 12 + offset[sp, ws1, 8], gprHi
+end
             end)
 
             forEachArgumentFPR(macro (offset, fpr)
@@ -935,8 +935,15 @@ if ARMv7
 else
             move memoryBase, PC
 end
-            forEachArgumentGPR(macro (offset, gpr)
-                storeq gpr, CallFrameHeaderSize + 8 + offset[ws1, ws0, 8]
+            forEachArgumentGPRPair(macro (offset, gprLo, gprHi)
+                # These are 64-bit virtual registers.
+if JSVALUE64
+                storeq gprLo, CallFrameHeaderSize +  8 + offset[ws1, ws0, 8]
+                storeq gprHi, CallFrameHeaderSize + 16 + offset[ws1, ws0, 8]
+else
+                storei gprLo, CallFrameHeaderSize +  8 + offset[ws1, ws0, 8]
+                storei gprHi, CallFrameHeaderSize + 12 + offset[ws1, ws0, 8]
+end
             end)
 
             forEachArgumentFPR(macro (offset, fpr)

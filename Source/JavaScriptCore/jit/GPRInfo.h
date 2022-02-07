@@ -172,14 +172,6 @@ public:
     {
     }
 
-    //FIXME: 32bit hack
-    constexpr explicit JSValueRegs(GPRReg tagGPR)
-        : m_tagGPR(tagGPR)
-        , m_payloadGPR(InvalidGPRReg)
-    {
-        CRASH();
-    }
-    
     constexpr JSValueRegs(GPRReg tagGPR, GPRReg payloadGPR)
         : m_tagGPR(tagGPR)
         , m_payloadGPR(payloadGPR)
