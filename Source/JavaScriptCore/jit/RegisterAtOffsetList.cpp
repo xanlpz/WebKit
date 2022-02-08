@@ -47,8 +47,18 @@ RegisterAtOffsetList::RegisterAtOffsetList(RegisterSet registerSet, OffsetBaseTy
 
     unsigned index = 0;
     registerSet.forEach([&] (Reg reg) {
+        size_t registerSize = sizeof(CPURegister);
+#if USE(JSVALUE64)
+        static_assert(sizeof(CPURegister) == sizeof(double));
+#elif USE(JSVALUE32_64)
+        static_assert(sizeof(CPURegister) * 2 == sizeof(double));
+        if (reg.isFPR()) {
+            registerSize = 2*sizeof(CPURegister);
+            offset = WTF::roundUpToMultipleOf<2*sizeof(CPURegister)>(offset);
+        }
+#endif
         m_registers[index] = RegisterAtOffset(reg, offset);
-        offset += sizeof(CPURegister);
+        offset += registerSize;
         ++index;
     });
 }

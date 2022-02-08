@@ -57,19 +57,15 @@ struct CallInformation {
     {
         RegisterSet usedResultRegisters;
         for (ValueLocation loc : results) {
-#if USE(JSVALUE64)
-            if (loc.isReg())
-                usedResultRegisters.set(loc.reg().reg());
-#else
-            if (loc.isReg()) {
-                // FIXME: can we do a set() method that just takes a WasmValueRegisters?
-                if (resultsIncludeI64) {
-                    usedResultRegisters.set(loc.reg().hi());
-                    usedResultRegisters.set(loc.reg().lo());
-                } else
-                    usedResultRegisters.set(loc.reg().reg());
-            }
+            if (loc.isGPR()) {
+                usedResultRegisters.set(loc.jsr().payloadGPR());
+#if USE(JSVALUE32_64)
+                usedResultRegisters.set(loc.jsr().tagGPR());
 #endif
+            }
+
+            if (loc.isFPR())
+                usedResultRegisters.set(loc.fpr());
         }
 
         RegisterAtOffsetList savedRegs(usedResultRegisters, RegisterAtOffsetList::ZeroBased);
@@ -88,7 +84,7 @@ class WasmCallingConvention {
 public:
     static constexpr unsigned headerSizeInBytes = CallFrame::headerSizeInRegisters * sizeof(Register);
 
-    WasmCallingConvention(Vector<JSValueRegs>&& jsrs, Vector<Reg>&& fprs, Vector<GPRReg>&& scratches, RegisterSet&& calleeSaves, RegisterSet&& callerSaves)
+    WasmCallingConvention(Vector<JSValueRegs>&& jsrs, Vector<FPRReg>&& fprs, Vector<GPRReg>&& scratches, RegisterSet&& calleeSaves, RegisterSet&& callerSaves)
         : jsrArgs(WTFMove(jsrs))
         , fprArgs(WTFMove(fprs))
         , prologueScratchGPRs(WTFMove(scratches))
@@ -103,7 +99,7 @@ private:
     ArgumentLocation marshallLocationImpl(CallRole role, const Vector<RegType>& regArgs, size_t& count, size_t& stackOffset) const
     {
         if (count < regArgs.size())
-            return ArgumentLocation::reg(regArgs[count++]);
+            return ArgumentLocation { regArgs[count++] };
 
         count++;
         ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
@@ -111,7 +107,7 @@ private:
         return result;
     }
 
-    ArgumentLocation marshallLocation(CallRole role, Type valueType, size_t& gpArgumentCount, size_t& fpArgumentCount, size_t& stackOffset, size_t& gprIndex, bool isArgumentType = false) const
+    ArgumentLocation marshallLocation(CallRole role, Type valueType, size_t& gpArgumentCount, size_t& fpArgumentCount, size_t& stackOffset) const
     {
         ASSERT(isValueType(valueType));
         switch (valueType.kind) {
@@ -139,18 +135,16 @@ public:
         size_t gpArgumentCount = 0;
         size_t fpArgumentCount = 0;
         size_t argStackOffset = headerSizeInBytes + sizeof(Register);
-        size_t gprIndex = 0;
         if (role == CallRole::Caller)
             argStackOffset -= sizeof(CallerFrameAndPC);
 
         Vector<ArgumentLocation> params(signature.argumentCount());
         for (size_t i = 0; i < signature.argumentCount(); ++i) {
             argumentsIncludeI64 |= signature.argument(i).isI64();
-            params[i] = marshallLocation(role, signature.argument(i), gpArgumentCount, fpArgumentCount, argStackOffset, gprIndex, true);
+            params[i] = marshallLocation(role, signature.argument(i), gpArgumentCount, fpArgumentCount, argStackOffset);
         }
         gpArgumentCount = 0;
         fpArgumentCount = 0;
-        gprIndex = 0;
         size_t resultStackOffset = headerSizeInBytes + sizeof(Register);
         if (role == CallRole::Caller)
             resultStackOffset -= sizeof(CallerFrameAndPC);
@@ -158,7 +152,7 @@ public:
         Vector<ArgumentLocation, 1> results(signature.returnCount());
         for (size_t i = 0; i < signature.returnCount(); ++i) {
             resultsIncludeI64 |= signature.returnType(i).isI64();
-            results[i] = marshallLocation(role, signature.returnType(i), gpArgumentCount, fpArgumentCount, resultStackOffset, gprIndex);
+            results[i] = marshallLocation(role, signature.returnType(i), gpArgumentCount, fpArgumentCount, resultStackOffset);
         }
 
         CallInformation result(WTFMove(params), WTFMove(results), std::max(argStackOffset, resultStackOffset));
@@ -168,7 +162,7 @@ public:
     }
 
     const Vector<JSValueRegs> jsrArgs;
-    const Vector<Reg> fprArgs;
+    const Vector<FPRReg> fprArgs;
     const Vector<GPRReg> prologueScratchGPRs;
     const RegisterSet calleeSaveRegisters;
     const RegisterSet callerSaveRegisters;
@@ -183,8 +177,8 @@ public:
     // Wasm::Context*'s instance.
     static constexpr ptrdiff_t instanceStackOffset = CallFrameSlot::thisArgument * sizeof(EncodedJSValue);
 
-    JSCallingConvention(Vector<Reg>&& gprs, Vector<Reg>&& fprs, RegisterSet&& calleeSaves, RegisterSet&& callerSaves)
-        : gprArgs(WTFMove(gprs))
+    JSCallingConvention(Vector<JSValueRegs>&& gprs, Vector<FPRReg>&& fprs, RegisterSet&& calleeSaves, RegisterSet&& callerSaves)
+        : jsrArgs(WTFMove(gprs))
         , fprArgs(WTFMove(fprs))
         , calleeSaveRegisters(WTFMove(calleeSaves))
         , callerSaveRegisters(WTFMove(callerSaves))
@@ -192,10 +186,11 @@ public:
 
     WTF_MAKE_NONCOPYABLE(JSCallingConvention);
 private:
-    ArgumentLocation marshallLocationImpl(CallRole role, const Vector<Reg>& regArgs, size_t& count, size_t& stackOffset) const
+    template <typename RegType>
+    ArgumentLocation marshallLocationImpl(CallRole role, const Vector<RegType>& regArgs, size_t& count, size_t& stackOffset) const
     {
         if (count < regArgs.size())
-            return ArgumentLocation::reg(regArgs[count++]);
+            return ArgumentLocation { regArgs[count++] };
 
         count++;
         ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
@@ -203,38 +198,17 @@ private:
         return result;
     }
 
-#if USE(JSVALUE32_64)
-    ArgumentLocation marshallLocationImpl32(CallRole role, const Vector<Reg>& regArgs, size_t& count, size_t& stackOffset) const
-    {
-        // We need two registers for a 64bit value.
-        if (count + 1 < regArgs.size()) {
-            uint first = count;
-            uint second = count + 1;
-            count += 2;
-            return ArgumentLocation(regArgs[first], regArgs[second]);
-        }
-
-        count+=2;
-        ArgumentLocation result = role == CallRole::Caller ? ArgumentLocation::stackArgument(stackOffset) : ArgumentLocation::stack(stackOffset);
-        stackOffset += sizeof(Register);
-        return result;
-    }
-#endif
-
     ArgumentLocation marshallLocation(CallRole role, Type valueType, size_t& gpArgumentCount, size_t& fpArgumentCount, size_t& stackOffset) const
     {
         ASSERT(isValueType(valueType));
         switch (valueType.kind) {
         case TypeKind::I64:
-#if USE(JSVALUE32_64)
-            return marshallLocationImpl32(role, gprArgs, gpArgumentCount, stackOffset);
-#endif
         case TypeKind::I32:
         case TypeKind::Funcref:
         case TypeKind::Externref:
         case TypeKind::Ref:
         case TypeKind::RefNull:
-            return marshallLocationImpl(role, gprArgs, gpArgumentCount, stackOffset);
+            return marshallLocationImpl(role, jsrArgs, gpArgumentCount, stackOffset);
         case TypeKind::F32:
         case TypeKind::F64:
             return marshallLocationImpl(role, fprArgs, fpArgumentCount, stackOffset);
@@ -257,12 +231,12 @@ public:
         for (size_t i = 0; i < signature.argumentCount(); ++i)
             params.append(marshallLocation(role, signature.argument(i), gpArgumentCount, fpArgumentCount, stackOffset));
 
-        Vector<ArgumentLocation, 1> results { ArgumentLocation::reg(GPRInfo::returnValueGPR) };
+        Vector<ArgumentLocation, 1> results { ArgumentLocation { JSRInfo::returnValueJSR } };
         return CallInformation(WTFMove(params), WTFMove(results), stackOffset);
     }
 
-    const Vector<Reg> gprArgs;
-    const Vector<Reg> fprArgs;
+    const Vector<JSValueRegs> jsrArgs;
+    const Vector<FPRReg> fprArgs;
     const RegisterSet calleeSaveRegisters;
     const RegisterSet callerSaveRegisters;
 };

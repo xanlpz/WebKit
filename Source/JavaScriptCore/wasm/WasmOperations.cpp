@@ -578,8 +578,10 @@ JSC_DEFINE_JIT_OPERATION(operationIterateResults, void, (CallFrame* callFrame, I
         RETURN_IF_EXCEPTION(scope, void());
 
         auto rep = wasmCallInfo.results[index];
-        if (rep.isReg())
-            registerResults[registerResultOffsets.find(rep.reg().reg())->offset() / sizeof(uint64_t)] = unboxedValue;
+        if (rep.isGPR())
+            registerResults[registerResultOffsets.find(rep.jsr().payloadGPR())->offset() / sizeof(uint64_t)] = unboxedValue;
+        else if (rep.isFPR())
+            registerResults[registerResultOffsets.find(rep.fpr())->offset() / sizeof(uint64_t)] = unboxedValue;
         else
             calleeFramePointer[rep.offsetFromFP() / sizeof(uint64_t)] = unboxedValue;
     }
@@ -604,16 +606,16 @@ JSC_DEFINE_JIT_OPERATION(operationAllocateResultsArray, JSArray*, (CallFrame* ca
     auto wasmCallInfo = wasmCallingConvention().callInformationFor(*signature);
     RegisterAtOffsetList registerResults = wasmCallInfo.computeResultsOffsetList();
 
-#if USE(JSVALUE64)
-    static_assert(sizeof(JSValue) == sizeof(CPURegister), "The code below relies on this.");
-#else
-    UNREACHABLE_FOR_PLATFORM();  //FIXME: for 32bit
-#endif
     for (unsigned i = 0; i < signature->returnCount(); ++i) {
         ValueLocation loc = wasmCallInfo.results[i];
         JSValue value;
-        if (loc.isReg())
-            value = stackPointerFromCallee[(registerResults.find(loc.reg().reg())->offset() + wasmCallInfo.headerAndArgumentStackSizeInBytes) / sizeof(JSValue)];
+        if (loc.isGPR()) {
+#if USE(JSVALE32_64)
+            ASSERT(registerResults.find(loc.jsr().payloadGPR())->offset() + 4 == registerResults.find(loc.jsr().tagGPR())->offset());
+#endif
+            value = stackPointerFromCallee[(registerResults.find(loc.jsr().payloadGPR())->offset() + wasmCallInfo.headerAndArgumentStackSizeInBytes) / sizeof(JSValue)];
+        } else if (loc.isFPR())
+            value = stackPointerFromCallee[(registerResults.find(loc.fpr())->offset() + wasmCallInfo.headerAndArgumentStackSizeInBytes) / sizeof(JSValue)];
         else
             value = stackPointerFromCallee[loc.offsetFromSP() / sizeof(JSValue)];
         result->initializeIndex(initializationScope, i, value);
