@@ -251,16 +251,21 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
 #if USE(JSVALUE64)
         // We're going to set the pinned registers after this. So
         // we can use this as a scratch for now since we saved it above.
-        GPRReg scratchReg = pinnedRegs.baseMemoryPointer;
-#elif USE(JSVALUE32_64)
-        // FIXME: I don't think this is right in it's current form
-        FPRReg fprScratch = wasmCallingConvention().fprArgs[0].fpr(); // We'll only use this for stack arguments, should be safe to use as scratch.
+        JSValeuRegs scratchJSR { pinnedRegs.baseMemoryPointer };
+#elif CPU(ARM)
+        JSValueRegs scratchJSR {
+            wasmContextInstanceGPR, // Never uses Fast TLS, and we are about to set it up
+            ARMRegisters::lr // Already saved in prologue
+        };
+#else // Other JVALUE32_64
+#error "Not implemeneted"
 #endif
 
-        if (!Context::useFastTLS()) {
-            jit.loadPtr(CCallHelpers::Address(GPRInfo::callFrameRegister, JSCallingConvention::instanceStackOffset), wasmContextInstanceGPR);
-            jit.loadPtr(CCallHelpers::Address(wasmContextInstanceGPR, JSWebAssemblyInstance::offsetOfInstance()), wasmContextInstanceGPR);
-        }
+        ASSERT(scratchJSR.payloadGPR() != GPRReg::InvalidGPRReg);
+#if USE(JSVALUE32_64)
+        ASSERT(scratchJSR.tagGPR() != GPRReg::InvalidGPRReg);
+        ASSERT(scratchJSR.payloadGPR() != scratchJSR.tagGPR());
+#endif
 
         for (unsigned i = 0; i < signature.argumentCount(); i++) {
             RELEASE_ASSERT(jsFrameConvention.params[i].isStack());
@@ -268,21 +273,14 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
             Type type = signature.argument(i);
             CCallHelpers::Address jsParam(GPRInfo::callFrameRegister, jsFrameConvention.params[i].offsetFromFP());
             if (wasmFrameConvention.params[i].isStackArgument()) {
-#if USE(JSVALUE64)
-                    jit.load64(jsParam, scratchReg);
-                    jit.store64(scratchReg, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
-#else
-                    jit.loadDouble(jsParam, fprScratch);
-                    jit.storeDouble(fprScratch, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
-#endif
+                if (type.isI32() || type.isF32()) {
+                    jit.load32(jsParam, scratchJSR.payloadGPR());
+                    jit.store32(scratchJSR.payloadGPR(), calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
+                } else {
+                    jit.loadValue(jsParam, scratchJSR);
+                    jit.storeValue(scratchJSR, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
+                }
             } else {
-
-#if USE(JSVALUE64)
-                if (type.isI32() || type.isF32())
-                    jit.load32ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
-                else
-                    jit.load64ToReg(jsParam, wasmFrameConvention.params[i].reg().reg());
-#elif USE(JSVALUE32_64)
                 if (type.isF32())
                     jit.loadFloat(jsParam, wasmFrameConvention.params[i].fpr());
                 else if (type.isF64())
@@ -291,8 +289,12 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
                     jit.load32(jsParam, wasmFrameConvention.params[i].jsr().payloadGPR());
                 else
                     jit.loadValue(jsParam, wasmFrameConvention.params[i].jsr());
-#endif
             }
+        }
+
+        if (!Context::useFastTLS()) {
+            jit.loadPtr(CCallHelpers::Address(GPRInfo::callFrameRegister, JSCallingConvention::instanceStackOffset), wasmContextInstanceGPR);
+            jit.loadPtr(CCallHelpers::Address(wasmContextInstanceGPR, JSWebAssemblyInstance::offsetOfInstance()), wasmContextInstanceGPR);
         }
     }
 
