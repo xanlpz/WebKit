@@ -40,7 +40,7 @@ const JSCallingConvention& jsCallingConvention()
         RegisterSet callerSaveRegisters = RegisterSet::allRegisters();
         callerSaveRegisters.exclude(RegisterSet::calleeSaveRegisters());
 
-        staticJSCallingConvention.construct(Vector<Reg>(), Vector<Reg>(), RegisterSet::calleeSaveRegisters(), WTFMove(callerSaveRegisters));
+        staticJSCallingConvention.construct(Vector<JSValueRegs>(), Vector<FPRReg>(), RegisterSet::calleeSaveRegisters(), WTFMove(callerSaveRegisters));
     });
 
     return staticJSCallingConvention;
@@ -64,7 +64,7 @@ const WasmCallingConvention& wasmCallingConvention()
             jsrArgumentRegisters[i] = JSValueRegs { GPRInfo::toArgumentRegister(2 * i + 1), GPRInfo::toArgumentRegister(2 * i) };
 #endif
 
-        Vector<Reg> fprArgumentRegisters(FPRInfo::numberOfArgumentRegisters);
+        Vector<FPRReg> fprArgumentRegisters(FPRInfo::numberOfArgumentRegisters);
         for (unsigned i = 0; i < FPRInfo::numberOfArgumentRegisters; ++i)
             fprArgumentRegisters[i] = FPRInfo::toArgumentRegister(i);
 
