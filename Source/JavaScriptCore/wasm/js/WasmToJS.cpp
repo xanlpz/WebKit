@@ -68,7 +68,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
     // If we ever change this, we will also need to change WasmB3IRGenerator.
 
     // Below, we assume that the JS calling convention is always on the stack.
-    ASSERT(!jsCC.gprArgs.size());
+    ASSERT(!jsCC.jsrArgs.size());
     ASSERT(!jsCC.fprArgs.size());
 
     jit.emitFunctionPrologue();
@@ -209,7 +209,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
             case TypeKind::F32: {
                 FPRReg fprReg;
                 if (marshalledFPRs < wasmCC.fprArgs.size())
-                    fprReg = wasmCC.fprArgs[marshalledFPRs].fpr();
+                    fprReg = wasmCC.fprArgs[marshalledFPRs];
                 else {
                     // We've already spilled all arguments, these registers are available as scratch.
                     fprReg = FPRInfo::argumentFPR0;
@@ -223,7 +223,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
             case TypeKind::F64: {
                 FPRReg fprReg;
                 if (marshalledFPRs < wasmCC.fprArgs.size())
-                    fprReg = wasmCC.fprArgs[marshalledFPRs].fpr();
+                    fprReg = wasmCC.fprArgs[marshalledFPRs];
                 else {
                     // We've already spilled all arguments, these registers are available as scratch.
                     fprReg = FPRInfo::argumentFPR0;

@@ -912,8 +912,12 @@ auto B3IRGenerator::addArguments(const Signature& signature) -> PartialResult
         B3::Type type = toB3Type(signature.argument(i));
         B3::Value* argument;
         auto rep = wasmCallInfo.params[i];
-        if (rep.isReg()) {
-            argument = m_currentBlock->appendNew<B3::ArgumentRegValue>(m_proc, Origin(), rep.reg());
+        if (rep.isGPR()) {
+            argument = m_currentBlock->appendNew<B3::ArgumentRegValue>(m_proc, Origin(), rep.jsr().payloadGPR());
+            if (type == B3::Int32 || type == B3::Float)
+                argument = m_currentBlock->appendNew<B3::Value>(m_proc, B3::Trunc, Origin(), argument);
+        } else if (rep.isFPR()) {
+            argument = m_currentBlock->appendNew<B3::ArgumentRegValue>(m_proc, Origin(), rep.fpr());
             if (type == B3::Int32 || type == B3::Float)
                 argument = m_currentBlock->appendNew<B3::Value>(m_proc, B3::Trunc, Origin(), argument);
         } else {
