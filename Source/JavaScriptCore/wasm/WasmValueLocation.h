@@ -38,112 +38,34 @@ namespace JSC {
 
 namespace Wasm {
 
-#if USE(JSVALUE64)
-class ValueRegisters {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    ValueRegisters()
-        : m_reg(InvalidGPRReg)
-    {
-    }
-
-    ValueRegisters(Reg reg)
-        : m_reg(reg)
-    {
-    }
-
-    Reg reg() const { return m_reg; }
-    GPRReg gpr() const { return m_reg.gpr(); }
-    FPRReg fpr() const { return m_reg.fpr(); }
-
-private:
-    Reg m_reg;
-};
-#elif USE(JSVALUE32_64)
-class ValueRegisters {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    ValueRegisters()
-        : m_hi(InvalidGPRReg)
-        , m_lo(InvalidGPRReg)
-    {
-    }
-
-    ValueRegisters(Reg hi, Reg lo)
-        : m_hi(hi)
-        , m_lo(lo)
-    {
-    }
-
-    ValueRegisters(Reg gpr)
-        : m_hi(gpr)
-        , m_lo(InvalidGPRReg)
-    {
-    }
-
-    // FIXME: this can probably be optimized to only have one register when needed.
-    Reg reg() const { return m_hi; }
-    GPRReg gpr() const { return m_hi.gpr(); }
-    FPRReg fpr() const { return m_hi.fpr(); } //FIXME: we only use m_hi?
-    Reg hi() const { return m_hi; }
-    Reg lo() const { return m_lo; }
-
-private:
-    Reg m_hi;
-    Reg m_lo;
-};
-#endif
-
 class ValueLocation {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     enum Kind : uint8_t {
-        Register,
+        GPRRegister,
+        FPRRegister,
         Stack,
         StackArgument,
     };
 
     ValueLocation()
-        : m_kind(Register)
+        : m_kind(GPRRegister)
     {
     }
 
-    explicit ValueLocation(ValueRegisters reg)
-        : m_kind(Register)
+    explicit ValueLocation(JSValueRegs regs)
+        : m_kind(GPRRegister)
     {
-        u.reg = reg;
+        u.jsr = regs;
     }
 
-    explicit ValueLocation(Reg reg)
-        : m_kind(Register)
+    explicit ValueLocation(FPRReg reg)
+        : m_kind(FPRRegister)
     {
-        u.reg = ValueRegisters(reg);
+        u.fpr = reg;
     }
-
-#if USE(JSVALUE32_64)
-    explicit ValueLocation(Reg hi, Reg lo)
-        : m_kind(Register)
-    {
-        u.reg = ValueRegisters(hi, lo);
-    }
-#endif
 
     ValueLocation(const ValueLocation&) = default;
-
-    static ValueLocation reg(Reg reg)
-    {
-        return ValueLocation(ValueRegisters(reg));
-    }
-    
-    static ValueLocation reg(ValueRegisters reg)
-    {
-        return ValueLocation(reg);
-    }
-
-    static ValueLocation reg(JSValueRegs reg)
-    {
-        return ValueLocation(ValueRegisters(reg.tagGPR(), reg.payloadGPR()));
-    }
 
     static ValueLocation stack(intptr_t offsetFromFP)
     {
@@ -163,27 +85,28 @@ public:
 
     Kind kind() const { return m_kind; }
 
-    bool isReg() const { return kind() == Register; }
+    bool isGPR() const { return kind() == GPRRegister; }
+    bool isFPR() const { return kind() == FPRRegister; }
+    bool isStack() const { return kind() == Stack; }
+    bool isStackArgument() const { return kind() == StackArgument; }
 
-    ValueRegisters reg() const
+    JSValueRegs jsr() const
     {
-        ASSERT(isReg());
-        return u.reg;
+        ASSERT(isGPR());
+        return u.jsr;
     }
 
-    GPRReg gpr() const { return reg().gpr(); }
-    FPRReg fpr() const { return reg().fpr(); }
-    JSValueRegs jsr() const { return JSValueRegs{reg().hi().gpr(), reg().lo().gpr()}; }
-
-    bool isStack() const { return kind() == Stack; }
+    FPRReg fpr() const
+    {
+        ASSERT(isFPR());
+        return u.fpr;
+    }
 
     intptr_t offsetFromFP() const
     {
         ASSERT(isStack());
         return u.offsetFromFP;
     }
-
-    bool isStackArgument() const { return kind() == StackArgument; }
 
     intptr_t offsetFromSP() const
     {
@@ -195,7 +118,8 @@ public:
 
 private:
     union U {
-        ValueRegisters reg;
+        JSValueRegs jsr;
+        FPRReg fpr;
         intptr_t offsetFromFP;
         intptr_t offsetFromSP;
 

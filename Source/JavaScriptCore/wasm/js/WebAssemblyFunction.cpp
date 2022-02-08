@@ -241,7 +241,7 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         jit.emitMaterializeTagCheckRegisters();
 
     // Loop backwards so we can use the first floating point argument as a scratch.
-    FPRReg scratchFPR = Wasm::wasmCallingConvention().fprArgs[0].fpr();
+    FPRReg scratchFPR = Wasm::wasmCallingConvention().fprArgs[0];
     for (unsigned i = signature.argumentCount(); i--;) {
         CCallHelpers::Address calleeFrame = CCallHelpers::Address(MacroAssembler::stackPointerRegister, 0);
         CCallHelpers::Address jsParam(GPRInfo::callFrameRegister, jsCallInfo.params[i].offsetFromFP());
@@ -255,11 +255,12 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
 #else
             jit.load32(jsParam, scratchGPR);
 #endif
+            // TODO: incorrect on 32_64
             slowPath.append(jit.branchIfNotInt32(scratchGPR));
             if (isStack)
                 jit.store32(scratchGPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
             else
-                jit.zeroExtend32ToWord(scratchGPR, wasmCallInfo.params[i].reg().gpr());
+                jit.zeroExtend32ToWord(scratchGPR, wasmCallInfo.params[i].jsr().payloadGPR());
             break;
         }
         case Wasm::TypeKind::Ref:
@@ -317,21 +318,17 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
                 jit.store32(scratchGPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
 #endif
             } else {
-                auto externGPR = wasmCallInfo.params[i].gpr();
-#if USE(JSVALUE64)
-                jit.load64(jsParam, externGPR);
-#else
-                jit.load32(jsParam, externGPR);
-#endif
+                auto externJSR = wasmCallInfo.params[i].jsr();
+                jit.loadValue(jsParam, externJSR);
                 if (!type.isNullable())
-                    slowPath.append(jit.branchIfNull(externGPR));
+                    slowPath.append(jit.branchIfNull(externJSR));
             }
             break;
         }
         case Wasm::TypeKind::F32:
         case Wasm::TypeKind::F64: {
             if (!isStack)
-                scratchFPR = wasmCallInfo.params[i].reg().fpr();
+                scratchFPR = wasmCallInfo.params[i].fpr();
             auto moveToDestination = [&] () {
                 if (isStack) {
                     if (signature.argument(i).isF32())
