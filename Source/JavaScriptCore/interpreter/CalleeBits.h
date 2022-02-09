@@ -72,9 +72,9 @@ public:
         return (reinterpret_cast<uintptr_t>(m_ptr) & JSValue::WasmMask) == JSValue::WasmTag;
 #elif USE(JSVALUE32_64)
         return bitwise_cast<uintptr_t>(m_ptr) & wasmTag;
+#endif
 #else
         return false;
-#endif
 #endif
     }
     bool isCell() const { return !isWasm(); }

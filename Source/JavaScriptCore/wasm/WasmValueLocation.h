@@ -32,7 +32,6 @@
 #include "GPRInfo.h"
 #include "Reg.h"
 #include <wtf/PrintStream.h>
-#include "WasmOps.h"
 
 namespace JSC {
 
@@ -64,8 +63,6 @@ public:
     {
         u.fpr = reg;
     }
-
-    ValueLocation(const ValueLocation&) = default;
 
     static ValueLocation stack(intptr_t offsetFromFP)
     {

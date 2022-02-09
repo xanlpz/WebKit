@@ -166,12 +166,12 @@ private:
 #if USE(JSVALUE32_64)
 class JSValueRegs {
 public:
-    constexpr JSValueRegs()
+    JSValueRegs()
         : m_tagGPR(InvalidGPRReg)
         , m_payloadGPR(InvalidGPRReg)
     {
     }
-
+    
     constexpr JSValueRegs(GPRReg tagGPR, GPRReg payloadGPR)
         : m_tagGPR(tagGPR)
         , m_payloadGPR(payloadGPR)
