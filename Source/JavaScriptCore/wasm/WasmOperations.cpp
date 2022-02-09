@@ -514,7 +514,7 @@ JSC_DEFINE_JIT_OPERATION(operationConvertToBigInt, EncodedJSValue, (CallFrame* c
 }
 
 // https://webassembly.github.io/multi-value/js-api/index.html#run-a-host-function
-JSC_DEFINE_JIT_OPERATION(operationIterateResults, void, (CallFrame* callFrame, Instance* instance, const Signature* signature, JSValue result, uint64_t* registerResults, uint64_t* calleeFramePointer))
+JSC_DEFINE_JIT_OPERATION(operationIterateResults, void, (CallFrame* callFrame, Instance* instance, const Signature* signature, EncodedJSValue encResult, uint64_t* registerResults, uint64_t* calleeFramePointer))
 {
     // FIXME: Consider passing JSWebAssemblyInstance* instead.
     // https://bugs.webkit.org/show_bug.cgi?id=203206
@@ -529,6 +529,7 @@ JSC_DEFINE_JIT_OPERATION(operationIterateResults, void, (CallFrame* callFrame, I
 
     unsigned iterationCount = 0;
     MarkedArgumentBuffer buffer;
+    JSValue result = JSValue::decode(encResult);
     forEachInIterable(globalObject, result, [&] (VM&, JSGlobalObject*, JSValue value) -> void {
         if (buffer.size() < signature->returnCount())
             buffer.append(value);
@@ -951,7 +952,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmThrow, void*, (Instance* instance, CallFra
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
     Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
-    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(jsInstance->module());
+    *calleeSlot = bitwise_cast<JSCell*>(jsInstance->module());
     return vm.targetMachinePCForThrow;
 }
 
@@ -978,7 +979,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmRethrow, void*, (Instance* instance, CallF
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
     Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
-    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(jsInstance->module());
+    *calleeSlot = bitwise_cast<JSCell*>(jsInstance->module());
     return vm.targetMachinePCForThrow;
 }
 
@@ -1014,7 +1015,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSException, void*, (CallFrame* callFram
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
     Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
-    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(instance->module());
+    *calleeSlot = bitwise_cast<JSCell*>(instance->module());
     return vm.targetMachinePCForThrow;
 }
 
