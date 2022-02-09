@@ -643,7 +643,7 @@ WASM_SLOW_PATH_DECL(throw)
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
     Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
-    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(jsInstance->module());
+    *calleeSlot = bitwise_cast<JSCell*>(jsInstance->module());
     WASM_RETURN_TWO(vm.targetMachinePCForThrow, nullptr);
 }
 
@@ -672,7 +672,7 @@ WASM_SLOW_PATH_DECL(rethrow)
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
     Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
-    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(jsInstance->module());
+    *calleeSlot = bitwise_cast<JSCell*>(jsInstance->module());
     WASM_RETURN_TWO(vm.targetMachinePCForThrow, nullptr);
 }
 
