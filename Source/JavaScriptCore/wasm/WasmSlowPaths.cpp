@@ -642,9 +642,8 @@ WASM_SLOW_PATH_DECL(throw)
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
-#if USE(JSVALUE64) //FIXME
-    bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
-#endif
+    Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
+    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(jsInstance->module());
     WASM_RETURN_TWO(vm.targetMachinePCForThrow, nullptr);
 }
 
@@ -672,9 +671,8 @@ WASM_SLOW_PATH_DECL(rethrow)
     // to the exception handler. If we did this, we could remove this terrible hack.
     // https://bugs.webkit.org/show_bug.cgi?id=170440
     vm.calleeForWasmCatch = callFrame->callee();
-#if USE(JSVALUE64) //FIXME
-    bitwise_cast<uint64_t*>(callFrame)[static_cast<int>(CallFrameSlot::callee)] = bitwise_cast<uint64_t>(jsInstance->module());
-#endif
+    Register* calleeSlot = bitwise_cast<Register*>(callFrame) + static_cast<int>(CallFrameSlot::callee);
+    *bitwise_cast<JSCell**>(calleeSlot) = bitwise_cast<JSCell*>(jsInstance->module());
     WASM_RETURN_TWO(vm.targetMachinePCForThrow, nullptr);
 }
 

@@ -30,6 +30,11 @@
 #       WasmToJS is mostly TODO
 #       atomic ops.
 
+# Constants
+
+const MswOffset = 4
+const LswOffset = 0
+
 # Opcodes that should eventually be shared with JS llint
 
 wasmOp(mov, WasmMov, macro(ctx)

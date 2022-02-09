@@ -75,12 +75,12 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
     if (signature.returnsVoid())
         jit.moveTrustedValue(jsUndefined(), JSRInfo::returnValueJSR);
     else if (signature.returnCount() == 1) {
-        auto type = signature.returnType(0);
-        if (type.isI64()) {
+        if (signature.returnType(0).isI64()) {
             JSValueRegs inputJSR = wasmFrameConvention.results[0].jsr();
             GPRReg wasmContextInstanceGPR = PinnedRegisterInfo::get().wasmContextInstancePointer;
             if (Context::useFastTLS()) {
                 wasmContextInstanceGPR = inputJSR.payloadGPR() == GPRInfo::argumentGPR1 ? GPRInfo::argumentGPR0 : GPRInfo::argumentGPR1;
+                ASSERT(!inputJSR.uses(wasmContextInstanceGPR));
                 static_assert(std::is_same_v<Wasm::Instance*, typename FunctionTraits<decltype(operationConvertToBigInt)>::ArgumentType<1>>);
                 jit.loadWasmContextInstance(wasmContextInstanceGPR);
             }
@@ -116,39 +116,13 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
             Type type = signature.returnType(i);
 
             hasI64 |= type.isI64();
-            if (loc.isStack()) {
-                if (!type.isI64()) {
-                    auto location = CCallHelpers::Address(CCallHelpers::stackPointerRegister, loc.offsetFromSP());
-                    ValueLocation tmp;
-                    switch (type.kind) {
-                        case TypeKind::F32:
-                            tmp = ValueLocation {fprScratch };
-                            jit.loadFloat(location, fprScratch);
-                            break;
-                        case TypeKind::F64:
-                            tmp = ValueLocation {fprScratch };
-                            jit.loadDouble(location, fprScratch);
-                            break;
-                        case TypeKind::I32:
-                            tmp = ValueLocation {scratchJSR };
-                            jit.load32(location, scratchJSR.payloadGPR());
-                            break;
-                        default:
-                            tmp = ValueLocation { scratchJSR };
-                            jit.loadValue(location, scratchJSR);
-                            break;
-                    }
-                    boxWasmResult(jit, type, tmp, scratchJSR);
-                    jit.storeValue(scratchJSR, location);
-                }
-            } else {
+            if (loc.isGPR() || loc.isFPR()) {
 #if USE(JSVALUE32_64)
                 ASSERT(!loc.isGPR() || savedResultRegisters.find(loc.jsr().payloadGPR())->offset() + 4 == savedResultRegisters.find(loc.jsr().tagGPR())->offset());
 #endif
                 auto address = CCallHelpers::Address(CCallHelpers::stackPointerRegister, wasmFrameConvention.headerAndArgumentStackSizeInBytes);
                 switch (type.kind) {
                     case TypeKind::F32:
-                        FALLTHROUGH;
                     case TypeKind::F64:
                         boxWasmResult(jit, type, loc, scratchJSR);
                         jit.storeValue(scratchJSR, address.withOffset(savedResultRegisters.find(loc.fpr())->offset()));
@@ -160,6 +134,31 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
                         boxWasmResult(jit, type, loc, scratchJSR);
                         jit.storeValue(scratchJSR, address.withOffset(savedResultRegisters.find(loc.jsr().payloadGPR())->offset()));
                         break;
+                }
+            } else {
+                if (!type.isI64()) {
+                    auto location = CCallHelpers::Address(CCallHelpers::stackPointerRegister, loc.offsetFromSP());
+                    ValueLocation tmp;
+                    switch (type.kind) {
+                        case TypeKind::F32:
+                            tmp = ValueLocation { fprScratch };
+                            jit.loadFloat(location, fprScratch);
+                            break;
+                        case TypeKind::F64:
+                            tmp = ValueLocation { fprScratch };
+                            jit.loadDouble(location, fprScratch);
+                            break;
+                        case TypeKind::I32:
+                            tmp = ValueLocation { scratchJSR };
+                            jit.load32(location, scratchJSR.payloadGPR());
+                            break;
+                        default:
+                            tmp = ValueLocation { scratchJSR };
+                            jit.loadValue(location, scratchJSR);
+                            break;
+                    }
+                    boxWasmResult(jit, type, tmp, scratchJSR);
+                    jit.storeValue(scratchJSR, location);
                 }
             }
 
@@ -196,14 +195,13 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
                 constexpr JSValueRegs valueJSR = CCallHelpers::preferredArgumentJSR<decltype(operationConvertToBigInt), 2>();
 
                 CCallHelpers::Address address { CCallHelpers::stackPointerRegister };
-                if (loc.isStack())
-                    address = address.withOffset(loc.offsetFromSP());
-                else {
+                if (loc.isGPR() || loc.isFPR()) {
 #if USE(JSVALUE32_64)
                     ASSERT(savedResultRegisters.find(loc.jsr().payloadGPR())->offset() + 4 == savedResultRegisters.find(loc.jsr().tagGPR())->offset());
 #endif
                     address = address.withOffset(savedResultRegisters.find(loc.jsr().payloadGPR())->offset() + wasmFrameConvention.headerAndArgumentStackSizeInBytes);
-                }
+                } else
+                    address = address.withOffset(loc.offsetFromSP());
 
                 jit.loadValue(address, valueJSR);
                 jit.setupArguments<decltype(operationConvertToBigInt)>(wasmContextInstanceGPR, valueJSR);

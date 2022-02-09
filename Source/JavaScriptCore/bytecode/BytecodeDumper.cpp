@@ -407,9 +407,7 @@ CString BytecodeDumper::formatConstant(Type type, uint64_t constant) const
         if (isFuncref(type) || isExternref(type)) {
             if (JSValue::decode(constant) == jsNull())
                 return "null";
-            // FIXME: this assumes pointers are 64bit
-            //return toCString(RawPointer(bitwise_cast<void*>(constant)));
-            return toCString(RawPointer((void*)constant));
+            return toCString(RawPointer(bitwise_cast<void*>(static_cast<uintptr_t>(constant))));
         }
 
         RELEASE_ASSERT_NOT_REACHED();
