@@ -128,9 +128,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
                 }
                 ++marshalledGPRs;
                 if (argType.isI32()) {
-#if USE(JSVALUE64)
                     jit.zeroExtend32ToWord(argReg.payloadGPR(), argReg.payloadGPR()); // Clear non-int32 and non-tag bits.
-#endif
                     jit.boxInt32(argReg.payloadGPR(), argReg, DoNotHaveTagRegisters);
                 }
                 jit.storeValue(argReg, calleeFrame.withOffset(calleeFrameOffset));
@@ -272,7 +270,6 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
     ASSERT(!wasmCC.calleeSaveRegisters.get(importJSCellGPRReg));
     materializeImportJSCell(jit, importIndex, importJSCellGPRReg);
 
-    // FIXME: Do we need to do write the CellTag in the callee field on JSVALUE32_64 ?
     jit.storePtr(importJSCellGPRReg, calleeFrame.withOffset(CallFrameSlot::callee * static_cast<int>(sizeof(Register))));
     jit.store32(JIT::TrustedImm32(numberOfParameters), calleeFrame.withOffset(CallFrameSlot::argumentCountIncludingThis * static_cast<int>(sizeof(Register)) + PayloadOffset));
     jit.storeValue(jsUndefined(), calleeFrame.withOffset(CallFrameSlot::thisArgument * static_cast<int>(sizeof(Register))), jsArg10);

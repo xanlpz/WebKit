@@ -40,7 +40,6 @@ else
     error
 end
 
-// FIXME: this is 0 for non hardfp ARMv7. Do we care?
 const NumberOfWasmArgumentFPRs = 8
 
 const NumberOfWasmArguments = NumberOfWasmArgumentJSRs + NumberOfWasmArgumentFPRs
@@ -59,12 +58,6 @@ elsif ARMv7
 else
     error
 end
-
-// Define this elsewhere? Also for both big and little endian
-const HiOffset = 0
-const LoOffset = 4
-const MswOffset = 4
-const LswOffset = 0
 
 # This must match the definition in LowLevelInterpreter.asm
 if X86_64
@@ -468,13 +461,13 @@ end
 macro loadConstantOrVariable(ctx, index, loader)
     firstConstantRegisterIndex(ctx, macro (firstConstantIndex)
         bpgteq index, firstConstantIndex, .constant
-        loader(cfr, index, 0)
+        loader([cfr, index, 8])
         jmp .done
     .constant:
         loadp CodeBlock[cfr], t6
         loadp Wasm::LLIntCallee::m_constants[t6], t6
         subp firstConstantIndex, index
-        loader(t6, index, (constexpr (Int64FixedVector::Storage::offsetOfData())))
+        loader((constexpr (Int64FixedVector::Storage::offsetOfData()))[t6, index, 8])
     .done:
     end)
 end
@@ -482,44 +475,44 @@ end
 if JSVALUE64
 macro mloadq(ctx, field, dst)
     wgets(ctx, field, dst)
-    loadConstantOrVariable(ctx, dst, macro (base, index, offset)
-        loadq offset[base, index, 8], dst
+    loadConstantOrVariable(ctx, dst, macro (from)
+        loadq from, dst
     end)
 end
 else
 macro mload2i(ctx, field, dstMsw, dstLsw)
     wgets(ctx, field, dstLsw)
-    loadConstantOrVariable(ctx, dstLsw, macro (base, index, offset)
-        load2ia offset[base, index, 8], dstLsw, dstMsw
+    loadConstantOrVariable(ctx, dstLsw, macro (from)
+        load2ia from, dstLsw, dstMsw
     end)
 end
 end
 
 macro mloadi(ctx, field, dst)
     wgets(ctx, field, dst)
-    loadConstantOrVariable(ctx, dst, macro (base, index, offset)
-        loadi offset[base, index, 8], dst
+    loadConstantOrVariable(ctx, dst, macro (from)
+        loadi from, dst
     end)
 end
 
 macro mloadp(ctx, field, dst)
     wgets(ctx, field, dst)
-    loadConstantOrVariable(ctx, dst, macro (base, index, offset)
-        loadp offset[base, index, 8], dst
+    loadConstantOrVariable(ctx, dst, macro (from)
+        loadp from, dst
     end)
 end
 
 macro mloadf(ctx, field, dst)
     wgets(ctx, field, t5)
-    loadConstantOrVariable(ctx, t5, macro (base, index, offset)
-        loadf offset[base, index, 8], dst
+    loadConstantOrVariable(ctx, t5, macro (from)
+        loadf from, dst
     end)
 end
 
 macro mloadd(ctx, field, dst)
     wgets(ctx, field, t5)
-    loadConstantOrVariable(ctx, t5, macro (base, index, offset)
-        loadd offset[base, index, 8], dst
+    loadConstantOrVariable(ctx, t5, macro (from)
+        loadd from, dst
     end)
 end
 
