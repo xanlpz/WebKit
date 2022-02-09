@@ -263,16 +263,22 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
     jit.loadWasmContextInstance(GPRInfo::argumentGPR0);
     jit.loadPtr(CCallHelpers::Address(GPRInfo::argumentGPR0, Instance::offsetOfOwner()), GPRInfo::argumentGPR0);
     jit.loadPtr(CCallHelpers::Address(GPRInfo::argumentGPR0, JSWebAssemblyInstance::offsetOfModule()), GPRInfo::argumentGPR0);
-    jit.emitPutToCallFrameHeader(GPRInfo::argumentGPR0, CallFrameSlot::callee);
+    CCallHelpers::Address calleeSlot { GPRInfo::callFrameRegister, CallFrameSlot::callee  * sizeof(Register) };
+    jit.storePtr(GPRInfo::argumentGPR0, calleeSlot);
+#if USE(JSVALUE32_64) // FIXME: not sure this is needed
+    jit.store32(CCallHelpers::TrustedImm32(JSValue::CellTag), calleeSlot.withOffset(TagOffset));
+#endif
 
-    GPRReg importJSCellGPRReg = GPRInfo::regT0; // Callee needs to be in regT0 for slow path below.
-
+    // jsArg10 might overlap with regT0, so store 'this' argument first
+    jit.storeValue(jsUndefined(), calleeFrame.withOffset(CallFrameSlot::thisArgument * static_cast<int>(sizeof(Register))), jsArg10);
+    constexpr GPRReg importJSCellGPRReg = GPRInfo::regT0; // Callee needs to be in regT0 for slow path below.
     ASSERT(!wasmCC.calleeSaveRegisters.get(importJSCellGPRReg));
     materializeImportJSCell(jit, importIndex, importJSCellGPRReg);
-
     jit.storePtr(importJSCellGPRReg, calleeFrame.withOffset(CallFrameSlot::callee * static_cast<int>(sizeof(Register))));
+#if USE(JSVALUE32_64)
+    jit.store32(CCallHelpers::TrustedImm32(JSValue::CellTag), calleeFrame.withOffset(CallFrameSlot::callee * static_cast<int>(sizeof(Register)) + TagOffset));
+#endif
     jit.store32(JIT::TrustedImm32(numberOfParameters), calleeFrame.withOffset(CallFrameSlot::argumentCountIncludingThis * static_cast<int>(sizeof(Register)) + PayloadOffset));
-    jit.storeValue(jsUndefined(), calleeFrame.withOffset(CallFrameSlot::thisArgument * static_cast<int>(sizeof(Register))), jsArg10);
 
     // FIXME Tail call if the wasm return type is void and no registers were spilled. https://bugs.webkit.org/show_bug.cgi?id=165488
 
@@ -412,7 +418,6 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
         }
         }
     } else if (signature.returnCount() > 1) {
-#if USE(JSVALUE64)
         GPRReg wasmContextInstanceGPR = PinnedRegisterInfo::get().wasmContextInstancePointer;
         if (Context::useFastTLS()) {
             wasmContextInstanceGPR = GPRInfo::argumentGPR1;
@@ -420,15 +425,20 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
             jit.loadWasmContextInstance(wasmContextInstanceGPR);
         }
 
-        jit.setupArguments<decltype(operationIterateResults)>(wasmContextInstanceGPR, &signature, GPRInfo::returnValueGPR, CCallHelpers::stackPointerRegister, CCallHelpers::framePointerRegister);
+        jit.setupArguments<decltype(operationIterateResults)>(wasmContextInstanceGPR, CCallHelpers::TrustedImmPtr(&signature), JSRInfo::returnValueJSR, CCallHelpers::stackPointerRegister, CCallHelpers::framePointerRegister);
         jit.callOperation(FunctionPtr<OperationPtrTag>(operationIterateResults));
         exceptionChecks.append(jit.emitJumpIfException(vm));
 
-        for (RegisterAtOffset location : savedResultRegisters)
-            jit.load64ToReg(CCallHelpers::Address(CCallHelpers::stackPointerRegister, location.offset()), location.reg());
-#else
-        CRASH(); // FIXME: need to implement this
+        for (unsigned i = 0; i < signature.returnCount(); ++i) {
+            ValueLocation loc = wasmCallInfo.results[i];
+            if (loc.isGPR()) {
+#if USE(JSVALUE32_64)
+                ASSERT(savedResultRegisters.find(loc.jsr().payloadGPR())->offset() + 4 == savedResultRegisters.find(loc.jsr().tagGPR())->offset());
 #endif
+                jit.loadValue(CCallHelpers::Address(CCallHelpers::stackPointerRegister, savedResultRegisters.find(loc.jsr().payloadGPR())->offset()), loc.jsr());
+            } else if (loc.isFPR())
+                jit.loadDouble(CCallHelpers::Address(CCallHelpers::stackPointerRegister, savedResultRegisters.find(loc.fpr())->offset()), loc.fpr());
+        }
     }
 
     jit.emitFunctionEpilogue();
