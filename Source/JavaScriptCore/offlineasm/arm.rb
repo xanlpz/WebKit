@@ -95,7 +95,6 @@ def armMoveImmediate(value, register)
     end
 end
 
-#FIXME: the waX assignments are most certainly wrong
 class RegisterID
     def armOperand
         case name

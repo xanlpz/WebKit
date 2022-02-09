@@ -2106,7 +2106,7 @@ public:
         move(TrustedImmPtr(operation.executableAddress()), addressTempRegister);
         call(addressTempRegister, OperationPtrTag);
     }
-    
+
     ALWAYS_INLINE void ret()
     {
         m_assembler.bx(linkRegister);
