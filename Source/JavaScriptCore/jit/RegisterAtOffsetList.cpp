@@ -50,7 +50,9 @@ RegisterAtOffsetList::RegisterAtOffsetList(RegisterSet registerSet, OffsetBaseTy
     static_assert(2 * SizeOfGPR == SizeOfFPR);
     size_t numberOfGPRs = registerSet.numberOfSetGPRs();
     size_t numberOfFPRs = registerSet.numberOfSetFPRs();
-    m_sizeOfAreaInBytes = WTF::roundUpToMultipleOf<2>(numberOfGPRs) * SizeOfGPR + numberOfFPRs * SizeOfFPR;
+    if (numberOfFPRs)
+        numberOfGPRs = WTF::roundUpToMultipleOf<2>(numberOfGPRs);
+    m_sizeOfAreaInBytes = numberOfGPRs * SizeOfGPR + numberOfFPRs * SizeOfFPR;
 #endif
 
     ptrdiff_t startOffset = 0;
