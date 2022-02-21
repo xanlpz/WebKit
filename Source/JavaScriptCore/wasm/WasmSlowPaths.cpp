@@ -856,7 +856,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_s_f64)
 {
     UNUSED_PARAM(instance);
     auto instruction = pc->as<WasmI64TruncSF64, WasmOpcodeTraits>();
-    float operand = READ(instruction.m_operand).unboxedDouble();
+    double operand = READ(instruction.m_operand).unboxedDouble();
     if (std::isnan(operand) || operand < static_cast<double>(INT64_MIN) || operand >= -static_cast<double>(INT64_MIN))
         WASM_THROW(Wasm::ExceptionType::OutOfBoundsTrunc);
     WASM_RETURN(static_cast<int64_t>(operand));
