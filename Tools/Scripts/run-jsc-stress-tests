@@ -1799,6 +1799,8 @@ end
 def runWebAssemblyWithHarness(*optionalTestSpecificOptions)
     raise unless $benchmark.to_s =~ /harness\.m?js/
     return if !$isWasmPlatform
+    # Skip this completely on armv7 for now, since most of the tests are related to OSR and it's a bit hairy to skip them manually
+    return if $architecture == "arm"
 
     wasmFiles = allWasmFiles($collection)
     prepareExtraRelativeFiles(wasmFiles.map { |f| f.basename }, $collection)
