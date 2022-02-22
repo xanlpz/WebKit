@@ -329,6 +329,9 @@ macro wasmPrologue(codeBlockGetter, codeBlockSetter, loadWasmInstance)
 
     loadp Wasm::Instance::m_owner[wasmInstance], ws0
     storep ws0, ThisArgumentOffset[cfr]
+if not JSVALUE64
+    storei CellTag, TagOffset + ThisArgumentOffset[cfr]
+end
 
     codeBlockGetter(ws0)
     codeBlockSetter(ws0)
