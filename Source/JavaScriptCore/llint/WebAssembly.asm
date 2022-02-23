@@ -719,16 +719,20 @@ _wasm_enter:
     loadi Wasm::LLIntCallee::m_numVars[t2], t2      // t2<size_t> = t2<CodeBlock>.m_numVars
     subi CalleeSaveSpaceAsVirtualRegisters + NumberOfWasmArguments, t2
     btiz t2, .opEnterDone
-    move cfr, t1
-    subp (CalleeSaveSpaceAsVirtualRegisters + NumberOfWasmArguments) * SlotSize, t1
+    subp cfr, (CalleeSaveSpaceAsVirtualRegisters + NumberOfWasmArguments) * SlotSize, t1
     lshifti 3, t2
     negi t2
 if JSVALUE64
     sxi2q t2, t2
 end
+    move 0, t6
 .opEnterLoop:
-    storep 0, [t1, t2]
-    addp PtrSize, t2
+if JSVALUE64
+    storeq t6, [t1, t2]
+else
+    store2ia t6, t6, [t1, t2]
+end
+    addp 8, t2
     btpnz t2, .opEnterLoop
 .opEnterDone:
     wasmDispatchIndirect(1)
@@ -1752,8 +1756,6 @@ end)
 
 macro dropKeep(startOffset, drop, keep)
     lshifti 3, startOffset
-    lshifti 3, drop
-    lshifti 3, keep
     subp cfr, startOffset, startOffset
     negi drop
 if JSVALUE64
@@ -1762,10 +1764,15 @@ end
 
 .copyLoop:
     btiz keep, .done
-    loadp [startOffset, drop], t6
-    storep t6, [startOffset]
-    subi PtrSize, keep
-    subp PtrSize, startOffset
+if JSVALUE64
+    loadq [startOffset, drop, 8], t6
+    storeq t6, [startOffset]
+else
+    load2ia [startOffset, drop, 8], t5, t6
+    store2ia t5, t6, [startOffset]
+end
+    subi 1, keep
+    subp 8, startOffset
     jmp .copyLoop
 
 .done:
@@ -2278,17 +2285,21 @@ macro catchImpl(ctx, storeWasmInstance)
 
     lshifti 3, t2
     subp cfr, t2, t2
-    lshifti 3, t3
 
 .copyLoop:
     btiz t3, .done
-    loadp [t1], t6
-    storep t6, [t2]
-    subi PtrSize, t3
+if JSVALUE64
+    loadq [t1], t6
+    storeq t6, [t2]
+else
+    load2ia [t1], t5, t6
+    store2ia t5, t6, [t2]
+end
+    subi 1, t3
     # FIXME: Use arm store-add/sub instructions in wasm LLInt catch
     # https://bugs.webkit.org/show_bug.cgi?id=231210
-    subp PtrSize, t2
-    addp PtrSize, t1
+    subp 8, t2
+    addp 8, t1
     jmp .copyLoop
 
 .done:
