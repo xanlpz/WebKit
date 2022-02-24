@@ -659,7 +659,8 @@ bool Memory::copy(uint32_t dstAddress, uint32_t srcAddress, uint32_t count)
         return true;
 
     uint8_t* base = reinterpret_cast<uint8_t*>(memory());
-    memcpy(base + dstAddress, base + srcAddress, count);
+    // Source and destination areas might overlap, so using memmove.
+    memmove(base + dstAddress, base + srcAddress, count);
     return true;
 }
 
