@@ -537,8 +537,14 @@ Expected<PageCount, Memory::GrowFailReason> Memory::growShared(PageCount delta)
         m_handle->growToSize(desiredSize);
         return oldPageCount;
     }());
-    if (result)
+    if (result) {
         m_growSuccessCallback(GrowSuccessTag, oldPageCount, newPageCount);
+        // Update cache for instance
+        for (auto& instance : m_instances) {
+            if (instance.get() != nullptr)
+                instance.get()->updateCachedMemory();
+        }
+    }
     return result;
 }
 
