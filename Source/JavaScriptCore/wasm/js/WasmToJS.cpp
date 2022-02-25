@@ -84,12 +84,12 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
     // a call to this thunk, it'll make sure its stack check includes space
     // for us here.
 
-    // Note: The rounding of numberOfBytesForCall calculated here needs to be compatible with
-    // CCallHelpers::prepareForTailCallSlow in case the callee does a tail call.
     const unsigned numberOfParameters = argCount + 1; // There is a "this" argument.
-    const unsigned numberOfBytesForCall = (numberOfParameters + CallFrame::headerSizeInRegisters) * sizeof(Register);
-    const unsigned numberOfBytesForSavedResults = savedResultRegisters.sizeOfAreaInBytes() + sizeof(CallerFrameAndPC);
-    const unsigned stackOffset = WTF::roundUpToMultipleOf(stackAlignmentBytes(), std::max(numberOfBytesForCall, numberOfBytesForSavedResults)) - sizeof(CallerFrameAndPC);
+    const unsigned numberOfRegsForCall = CallFrame::headerSizeInRegisters + roundArgumentCountToAlignFrame(numberOfParameters);
+    ASSERT(!(numberOfRegsForCall % stackAlignmentRegisters()));
+    const unsigned numberOfBytesForCall = numberOfRegsForCall * sizeof(Register) - sizeof(CallerFrameAndPC);
+    const unsigned numberOfBytesForSavedResults = savedResultRegisters.sizeOfAreaInBytes();
+    const unsigned stackOffset = WTF::roundUpToMultipleOf(stackAlignmentBytes(), std::max(numberOfBytesForCall, numberOfBytesForSavedResults));
     jit.subPtr(MacroAssembler::TrustedImm32(stackOffset), MacroAssembler::stackPointerRegister);
     JIT::Address calleeFrame = CCallHelpers::Address(MacroAssembler::stackPointerRegister, -static_cast<ptrdiff_t>(sizeof(CallerFrameAndPC)));
 
