@@ -31,6 +31,7 @@
 #include "CCallHelpers.h"
 #include "JSCJSValueInlines.h"
 #include "JSWebAssemblyInstance.h"
+#include "MaxFrameExtentForSlowPathCall.h"
 #include "WasmCallingConvention.h"
 #include "WasmContextInlines.h"
 #include "WasmOperations.h"
@@ -216,8 +217,17 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
             static_assert(std::is_same_v<Wasm::Instance*, typename FunctionTraits<decltype(operationAllocateResultsArray)>::ArgumentType<1>>);
             jit.loadWasmContextInstance(wasmContextInstanceGPR);
         }
-        jit.setupArguments<decltype(operationAllocateResultsArray)>(wasmContextInstanceGPR, CCallHelpers::TrustedImmPtr(&signature), indexingType, CCallHelpers::stackPointerRegister);
+
+        constexpr GPRReg savedResultsGPR = CCallHelpers::preferredArgumentGPR<decltype(operationAllocateResultsArray), 4>();
+        jit.move(CCallHelpers::stackPointerRegister, savedResultsGPR);
+        if constexpr (maxFrameExtentForSlowPathCall)
+            jit.subPtr(CCallHelpers::TrustedImm32(maxFrameExtentForSlowPathCall), CCallHelpers::stackPointerRegister);
+        ASSERT(wasmContextInstanceGPR != savedResultsGPR);
+        jit.setupArguments<decltype(operationAllocateResultsArray)>(wasmContextInstanceGPR, CCallHelpers::TrustedImmPtr(&signature), indexingType, savedResultsGPR);
         jit.callOperation(FunctionPtr<OperationPtrTag>(operationAllocateResultsArray));
+        if constexpr (maxFrameExtentForSlowPathCall)
+            jit.addPtr(CCallHelpers::TrustedImm32(maxFrameExtentForSlowPathCall), CCallHelpers::stackPointerRegister);
+
         jit.boxCell(GPRInfo::returnValueGPR, JSRInfo::returnValueJSR);
     }
 }

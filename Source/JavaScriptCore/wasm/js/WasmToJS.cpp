@@ -31,6 +31,7 @@
 #include "CCallHelpers.h"
 #include "JSWebAssemblyInstance.h"
 #include "LinkBuffer.h"
+#include "MaxFrameExtentForSlowPathCall.h"
 #include "ThunkGenerators.h"
 #include "WasmCallingConvention.h"
 #include "WasmContextInlines.h"
@@ -427,8 +428,17 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
             jit.loadWasmContextInstance(wasmContextInstanceGPR);
         }
 
-        jit.setupArguments<decltype(operationIterateResults)>(wasmContextInstanceGPR, CCallHelpers::TrustedImmPtr(&signature), JSRInfo::returnValueJSR, CCallHelpers::stackPointerRegister, CCallHelpers::framePointerRegister);
+        constexpr GPRReg savedResultsGPR = CCallHelpers::preferredArgumentGPR<decltype(operationIterateResults), 4>();
+        jit.move(CCallHelpers::stackPointerRegister, savedResultsGPR);
+        if constexpr (maxFrameExtentForSlowPathCall)
+            jit.subPtr(CCallHelpers::TrustedImm32(maxFrameExtentForSlowPathCall), CCallHelpers::stackPointerRegister);
+        static_assert(CCallHelpers::noOverlap(savedResultsGPR, JSRInfo::returnValueJSR));
+        ASSERT(wasmContextInstanceGPR != savedResultsGPR);
+        jit.setupArguments<decltype(operationIterateResults)>(wasmContextInstanceGPR, CCallHelpers::TrustedImmPtr(&signature), JSRInfo::returnValueJSR, savedResultsGPR, CCallHelpers::framePointerRegister);
         jit.callOperation(FunctionPtr<OperationPtrTag>(operationIterateResults));
+        if constexpr (maxFrameExtentForSlowPathCall)
+            jit.addPtr(CCallHelpers::TrustedImm32(maxFrameExtentForSlowPathCall), CCallHelpers::stackPointerRegister);
+
         exceptionChecks.append(jit.emitJumpIfException(vm));
 
         for (unsigned i = 0; i < signature.returnCount(); ++i) {
