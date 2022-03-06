@@ -723,7 +723,7 @@ WASM_SLOW_PATH_DECL(retrieve_and_clear_exception)
 WASM_SLOW_PATH_DECL(f32_ceil)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF32Ceil, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF32Ceil>();
     float operand = READ(instruction.m_operand).unboxedFloat();
     WASM_RETURN(JSValue::encode(jsUnboxedFloat(std::ceil(operand))));
 }
@@ -731,7 +731,7 @@ WASM_SLOW_PATH_DECL(f32_ceil)
 WASM_SLOW_PATH_DECL(f32_floor)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF32Floor, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF32Floor>();
     float operand = READ(instruction.m_operand).unboxedFloat();
     WASM_RETURN(JSValue::encode(jsUnboxedFloat(std::floor(operand))));
 }
@@ -739,7 +739,7 @@ WASM_SLOW_PATH_DECL(f32_floor)
 WASM_SLOW_PATH_DECL(f32_trunc)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF32Trunc, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF32Trunc>();
     float operand = READ(instruction.m_operand).unboxedFloat();
     WASM_RETURN(JSValue::encode(jsUnboxedFloat(std::trunc(operand))));
 }
@@ -748,7 +748,7 @@ WASM_SLOW_PATH_DECL(f32_nearest)
 {
     static_assert(std::numeric_limits<float>::round_style == std::round_to_nearest);
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF32Nearest, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF32Nearest>();
     float operand = READ(instruction.m_operand).unboxedFloat();
     WASM_RETURN(JSValue::encode(jsUnboxedFloat(std::nearbyint(operand))));
 }
@@ -756,7 +756,7 @@ WASM_SLOW_PATH_DECL(f32_nearest)
 WASM_SLOW_PATH_DECL(f64_ceil)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF64Ceil, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF64Ceil>();
     double operand = READ(instruction.m_operand).unboxedDouble();
     WASM_RETURN(JSValue::encode(jsDoubleNumber(std::ceil(operand))));
 }
@@ -764,7 +764,7 @@ WASM_SLOW_PATH_DECL(f64_ceil)
 WASM_SLOW_PATH_DECL(f64_floor)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF64Floor, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF64Floor>();
     double operand = READ(instruction.m_operand).unboxedDouble();
     WASM_RETURN(JSValue::encode(jsDoubleNumber(std::floor(operand))));
 }
@@ -772,7 +772,7 @@ WASM_SLOW_PATH_DECL(f64_floor)
 WASM_SLOW_PATH_DECL(f64_trunc)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF64Trunc, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF64Trunc>();
     double operand = READ(instruction.m_operand).unboxedDouble();
     WASM_RETURN(JSValue::encode(jsDoubleNumber(std::trunc(operand))));
 }
@@ -781,7 +781,7 @@ WASM_SLOW_PATH_DECL(f64_nearest)
 {
     static_assert(std::numeric_limits<float>::round_style == std::round_to_nearest);
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF64Nearest, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF64Nearest>();
     double operand = READ(instruction.m_operand).unboxedDouble();
     WASM_RETURN(JSValue::encode(jsDoubleNumber(std::nearbyint(operand))));
 }
@@ -790,7 +790,7 @@ WASM_SLOW_PATH_DECL(f32_convert_u_i64)
 {
     static_assert(std::numeric_limits<float>::round_style == std::round_to_nearest);
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF32ConvertUI64, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF32ConvertUI64>();
     uint64_t operand = READ(instruction.m_operand).unboxedInt64();
     WASM_RETURN(JSValue::encode(jsUnboxedFloat(static_cast<float>(operand))));
 }
@@ -799,7 +799,7 @@ WASM_SLOW_PATH_DECL(f32_convert_s_i64)
 {
     static_assert(std::numeric_limits<float>::round_style == std::round_to_nearest);
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF32ConvertSI64, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF32ConvertSI64>();
     int64_t operand = READ(instruction.m_operand).unboxedInt64();
     WASM_RETURN(JSValue::encode(jsUnboxedFloat(static_cast<float>(operand))));
 }
@@ -808,7 +808,7 @@ WASM_SLOW_PATH_DECL(f64_convert_u_i64)
 {
     static_assert(std::numeric_limits<float>::round_style == std::round_to_nearest);
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF64ConvertUI64, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF64ConvertUI64>();
     uint64_t operand = READ(instruction.m_operand).unboxedInt64();
     WASM_RETURN(JSValue::encode(jsDoubleNumber(static_cast<double>(operand))));
 }
@@ -817,7 +817,7 @@ WASM_SLOW_PATH_DECL(f64_convert_s_i64)
 {
     static_assert(std::numeric_limits<float>::round_style == std::round_to_nearest);
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmF64ConvertSI64, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmF64ConvertSI64>();
     int64_t operand = READ(instruction.m_operand).unboxedInt64();
     WASM_RETURN(JSValue::encode(jsDoubleNumber(static_cast<double>(operand))));
 }
@@ -825,7 +825,7 @@ WASM_SLOW_PATH_DECL(f64_convert_s_i64)
 WASM_SLOW_PATH_DECL(i64_trunc_u_f32)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmI64TruncUF32, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmI64TruncUF32>();
     float operand = READ(instruction.m_operand).unboxedFloat();
     if (std::isnan(operand) || operand <= -1.0f || operand >= -2.0f * static_cast<float>(INT64_MIN))
         WASM_THROW(Wasm::ExceptionType::OutOfBoundsTrunc);
@@ -835,7 +835,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_u_f32)
 WASM_SLOW_PATH_DECL(i64_trunc_s_f32)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmI64TruncSF32, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmI64TruncSF32>();
     float operand = READ(instruction.m_operand).unboxedFloat();
     if (std::isnan(operand) || operand < static_cast<float>(INT64_MIN) || operand >= -static_cast<float>(INT64_MIN))
         WASM_THROW(Wasm::ExceptionType::OutOfBoundsTrunc);
@@ -845,7 +845,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_s_f32)
 WASM_SLOW_PATH_DECL(i64_trunc_u_f64)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmI64TruncUF64, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmI64TruncUF64>();
     double operand = READ(instruction.m_operand).unboxedDouble();
     if (std::isnan(operand) || operand <= -1.0 || operand >= -2.0 * static_cast<double>(INT64_MIN))
         WASM_THROW(Wasm::ExceptionType::OutOfBoundsTrunc);
@@ -855,7 +855,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_u_f64)
 WASM_SLOW_PATH_DECL(i64_trunc_s_f64)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmI64TruncSF64, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmI64TruncSF64>();
     double operand = READ(instruction.m_operand).unboxedDouble();
     if (std::isnan(operand) || operand < static_cast<double>(INT64_MIN) || operand >= -static_cast<double>(INT64_MIN))
         WASM_THROW(Wasm::ExceptionType::OutOfBoundsTrunc);
@@ -865,7 +865,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_s_f64)
 WASM_SLOW_PATH_DECL(i64_trunc_sat_f32_u)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmI64TruncSatF32U, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmI64TruncSatF32U>();
     float operand = READ(instruction.m_operand).unboxedFloat();
     uint64_t result;
     if (std::isnan(operand) || operand <= -1.0f)
@@ -880,7 +880,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_sat_f32_u)
 WASM_SLOW_PATH_DECL(i64_trunc_sat_f32_s)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmI64TruncSatF32S, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmI64TruncSatF32S>();
     float operand = READ(instruction.m_operand).unboxedFloat();
     int64_t result;
     if (std::isnan(operand))
@@ -897,7 +897,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_sat_f32_s)
 WASM_SLOW_PATH_DECL(i64_trunc_sat_f64_u)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmI64TruncSatF64U, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmI64TruncSatF64U>();
     double operand = READ(instruction.m_operand).unboxedDouble();
     uint64_t result;
     if (std::isnan(operand) || operand <= -1.0)
@@ -912,7 +912,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_sat_f64_u)
 WASM_SLOW_PATH_DECL(i64_trunc_sat_f64_s)
 {
     UNUSED_PARAM(instance);
-    auto instruction = pc->as<WasmI64TruncSatF64S, WasmOpcodeTraits>();
+    auto instruction = pc->as<WasmI64TruncSatF64S>();
     double operand = READ(instruction.m_operand).unboxedDouble();
     int64_t result;
     if (std::isnan(operand))

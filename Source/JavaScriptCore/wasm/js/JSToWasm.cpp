@@ -188,12 +188,12 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
 
                 GPRReg wasmContextInstanceGPR = PinnedRegisterInfo::get().wasmContextInstancePointer;
                 if (Context::useFastTLS()) {
-                    wasmContextInstanceGPR = CCallHelpers::preferredArgumentGPR<decltype(operationConvertToBigInt), 1>();
+                    wasmContextInstanceGPR = preferredArgumentGPR<decltype(operationConvertToBigInt), 1>();
                     static_assert(std::is_same_v<Wasm::Instance*, typename FunctionTraits<decltype(operationConvertToBigInt)>::ArgumentType<1>>);
                     jit.loadWasmContextInstance(wasmContextInstanceGPR);
                 }
 
-                constexpr JSValueRegs valueJSR = CCallHelpers::preferredArgumentJSR<decltype(operationConvertToBigInt), 2>();
+                constexpr JSValueRegs valueJSR = preferredArgumentJSR<decltype(operationConvertToBigInt), 2>();
 
                 CCallHelpers::Address address { CCallHelpers::stackPointerRegister };
                 if (loc.isGPR() || loc.isFPR()) {
@@ -213,12 +213,12 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
 
         GPRReg wasmContextInstanceGPR = PinnedRegisterInfo::get().wasmContextInstancePointer;
         if (Context::useFastTLS()) {
-            wasmContextInstanceGPR = CCallHelpers::preferredArgumentGPR<decltype(operationAllocateResultsArray), 1>();
+            wasmContextInstanceGPR = preferredArgumentGPR<decltype(operationAllocateResultsArray), 1>();
             static_assert(std::is_same_v<Wasm::Instance*, typename FunctionTraits<decltype(operationAllocateResultsArray)>::ArgumentType<1>>);
             jit.loadWasmContextInstance(wasmContextInstanceGPR);
         }
 
-        constexpr GPRReg savedResultsGPR = CCallHelpers::preferredArgumentGPR<decltype(operationAllocateResultsArray), 4>();
+        constexpr GPRReg savedResultsGPR = preferredArgumentGPR<decltype(operationAllocateResultsArray), 4>();
         jit.move(CCallHelpers::stackPointerRegister, savedResultsGPR);
         if constexpr (maxFrameExtentForSlowPathCall)
             jit.subPtr(CCallHelpers::TrustedImm32(maxFrameExtentForSlowPathCall), CCallHelpers::stackPointerRegister);

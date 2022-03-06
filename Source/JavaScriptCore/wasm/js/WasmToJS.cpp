@@ -247,8 +247,8 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
         for (unsigned argNum = 0; argNum < argCount; ++argNum) {
             if (signature.argument(argNum).isI64()) {
                 using Operation = decltype(operationConvertToBigInt);
-                constexpr GPRReg wasmInstanceGPR = CCallHelpers::preferredArgumentGPR<Operation, 1>();
-                constexpr JSValueRegs valueJSR = CCallHelpers::preferredArgumentJSR<Operation, 2>();
+                constexpr GPRReg wasmInstanceGPR = preferredArgumentGPR<Operation, 1>();
+                constexpr JSValueRegs valueJSR = preferredArgumentJSR<Operation, 2>();
                 jit.loadWasmContextInstance(wasmInstanceGPR);
                 jit.loadValue(calleeFrame.withOffset(calleeFrameOffset), valueJSR);
                 jit.setupArguments<Operation>(wasmInstanceGPR, valueJSR);
@@ -428,11 +428,11 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
             jit.loadWasmContextInstance(wasmContextInstanceGPR);
         }
 
-        constexpr GPRReg savedResultsGPR = CCallHelpers::preferredArgumentGPR<decltype(operationIterateResults), 4>();
+        constexpr GPRReg savedResultsGPR = preferredArgumentGPR<decltype(operationIterateResults), 4>();
         jit.move(CCallHelpers::stackPointerRegister, savedResultsGPR);
         if constexpr (maxFrameExtentForSlowPathCall)
             jit.subPtr(CCallHelpers::TrustedImm32(maxFrameExtentForSlowPathCall), CCallHelpers::stackPointerRegister);
-        static_assert(CCallHelpers::noOverlap(savedResultsGPR, JSRInfo::returnValueJSR));
+        static_assert(noOverlap(savedResultsGPR, JSRInfo::returnValueJSR));
         ASSERT(wasmContextInstanceGPR != savedResultsGPR);
         jit.setupArguments<decltype(operationIterateResults)>(wasmContextInstanceGPR, CCallHelpers::TrustedImmPtr(&signature), JSRInfo::returnValueJSR, savedResultsGPR, CCallHelpers::framePointerRegister);
         jit.callOperation(FunctionPtr<OperationPtrTag>(operationIterateResults));
