@@ -60,7 +60,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToWasm(unsi
     ASSERT(baseMemory != GPRReg::InvalidGPRReg);
     ASSERT(sizeRegAsScratch != GPRReg::InvalidGPRReg);
     ASSERT(scratch != GPRReg::InvalidGPRReg);
-    ASSERT(JIT::noOverlap(scratch, baseMemory, sizeRegAsScratch));
+    ASSERT(noOverlap(scratch, baseMemory, sizeRegAsScratch));
 
     // B3's call codegen ensures that the JSCell is a WebAssemblyFunction.
     jit.loadWasmContextInstance(sizeRegAsScratch); // Old Instance*
