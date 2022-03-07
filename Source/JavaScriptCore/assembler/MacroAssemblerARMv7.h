@@ -41,7 +41,7 @@ class MacroAssemblerARMv7 : public AbstractMacroAssembler<Assembler> {
     static constexpr RegisterID dataTempRegister = ARMRegisters::ip;
     static constexpr RegisterID addressTempRegister = ARMRegisters::r6;
 
-    static constexpr ARMRegisters::FPDoubleRegisterID fpTempRegister = ARMRegisters::d7;
+    static constexpr ARMRegisters::FPDoubleRegisterID fpTempRegister = ARMRegisters::d15;
     inline ARMRegisters::FPSingleRegisterID fpTempRegisterAsSingle() { return ARMRegisters::asSingle(fpTempRegister); }
 
     // In the Thumb-2 instruction set, instructions operating only on registers r0-r7 can often
