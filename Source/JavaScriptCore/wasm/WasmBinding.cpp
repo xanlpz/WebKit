@@ -42,11 +42,10 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToWasm(unsi
 {
     // FIXME: Consider uniquify the stubs based on signature + index to see if this saves memory.
     // https://bugs.webkit.org/show_bug.cgi?id=184157
-
-    const PinnedRegisterInfo& pinnedRegs = PinnedRegisterInfo::get();
     JIT jit;
 
 #if !CPU(ARM)
+    const PinnedRegisterInfo& pinnedRegs = PinnedRegisterInfo::get();
     GPRReg scratch = wasmCallingConvention().prologueScratchGPRs[0];
     GPRReg baseMemory = pinnedRegs.baseMemoryPointer;
     GPRReg sizeRegAsScratch = pinnedRegs.boundsCheckingSizeRegister;
