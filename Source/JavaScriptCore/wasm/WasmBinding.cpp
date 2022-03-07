@@ -50,7 +50,9 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToWasm(unsi
     GPRReg baseMemory = pinnedRegs.baseMemoryPointer;
     GPRReg sizeRegAsScratch = pinnedRegs.boundsCheckingSizeRegister;
 #else
+#if 0
     DisallowMacroScratchRegisterUsage disallowScratch(jit);
+#endif
     GPRReg scratch = jit.scratchRegister();
     GPRReg baseMemory = GPRInfo::regT0;
     GPRReg sizeRegAsScratch = GPRInfo::regT1;
