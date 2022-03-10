@@ -257,10 +257,18 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         case Wasm::TypeKind::I32: {
             jit.loadValue(jsParam, scratchJSR);
             slowPath.append(jit.branchIfNotInt32(scratchJSR));
-            if (isStack)
-                jit.store32(scratchJSR.payloadGPR(), calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
-            else
+            if (isStack) {
+                CCallHelpers::Address addr { calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()) };
+                jit.store32(scratchJSR.payloadGPR(), addr.withOffset(PayloadOffset));
+#if USE(JSVALUE32_64)
+                jit.store32(CCallHelpers::TrustedImm32(0), addr.withOffset(TagOffset));
+#endif
+            } else {
                 jit.zeroExtend32ToWord(scratchJSR.payloadGPR(), wasmCallInfo.params[i].jsr().payloadGPR());
+#if USE(JSVALUE32_64)
+                jit.move(CCallHelpers::TrustedImm32(0), wasmCallInfo.params[i].jsr().tagGPR());
+#endif
+            }
             break;
         }
         case Wasm::TypeKind::Ref:
@@ -340,10 +348,14 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
 
             done.link(&jit);
             if (isStack) {
-                if (signature.argument(i).isF32())
-                    jit.storeFloat(scratchFPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
-                else
-                    jit.storeDouble(scratchFPR, calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()));
+                CCallHelpers::Address addr { calleeFrame.withOffset(wasmCallInfo.params[i].offsetFromSP()) };
+                if (signature.argument(i).isF32()) {
+                    jit.storeFloat(scratchFPR, addr.withOffset(PayloadOffset));
+#if USE(JSVALUE32_64)
+                    jit.store32(CCallHelpers::TrustedImm32(0), addr.withOffset(TagOffset));
+#endif
+                } else
+                    jit.storeDouble(scratchFPR, addr);
             }
             break;
         }

@@ -310,21 +310,28 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
             Type type = signature.argument(i);
             CCallHelpers::Address jsParam(GPRInfo::callFrameRegister, jsFrameConvention.params[i].offsetFromFP());
             if (wasmFrameConvention.params[i].isStackArgument()) {
+                CCallHelpers::Address addr { calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()) };
                 if (type.isI32() || type.isF32()) {
                     jit.load32(jsParam, scratchJSR.payloadGPR());
-                    jit.store32(scratchJSR.payloadGPR(), calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
+                    jit.store32(scratchJSR.payloadGPR(), addr.withOffset(PayloadOffset));
+#if USE(JSVALUE32_64)
+                    jit.store32(CCallHelpers::TrustedImm32(0), addr.withOffset(TagOffset));
+#endif
                 } else {
                     jit.loadValue(jsParam, scratchJSR);
-                    jit.storeValue(scratchJSR, calleeFrame.withOffset(wasmFrameConvention.params[i].offsetFromSP()));
+                    jit.storeValue(scratchJSR, addr);
                 }
             } else {
                 if (type.isF32())
                     jit.loadFloat(jsParam, wasmFrameConvention.params[i].fpr());
                 else if (type.isF64())
                     jit.loadDouble(jsParam, wasmFrameConvention.params[i].fpr());
-                else if (type.isI32())
+                else if (type.isI32()) {
                     jit.load32(jsParam, wasmFrameConvention.params[i].jsr().payloadGPR());
-                else
+#if USE(JSVALUE32_64)
+                    jit.move(CCallHelpers::TrustedImm32(0), wasmFrameConvention.params[i].jsr().tagGPR());
+#endif
+                } else
                     jit.loadValue(jsParam, wasmFrameConvention.params[i].jsr());
             }
         }

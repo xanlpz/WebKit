@@ -385,7 +385,15 @@ ARM_INSTRUCTIONS =
      "mvlbl",
      "globaladdr",
      "sbci",
-     "moveii"
+     "moveii",
+     "loadlinkb",
+     "loadlinkh",
+     "loadlinki",
+     "loadlink2i",
+     "storecondb",
+     "storecondh",
+     "storecondi",
+     "storecond2i",
     ]
 
 ARM64_INSTRUCTIONS =
