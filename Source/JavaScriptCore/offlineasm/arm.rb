@@ -167,7 +167,11 @@ end
 class Address
     def armOperand
         raise "Bad offset at #{codeOriginString}" if offset.value < -0xff or offset.value > 0xfff
-        "[#{base.armOperand}, \##{offset.value}]"
+        if offset.value == 0
+          "[#{base.armOperand}]"
+        else
+          "[#{base.armOperand}, \##{offset.value}]"
+        end
     end
 end
 
@@ -546,6 +550,22 @@ class Instruction
             $asm.puts "ldrsh.w #{armFlippedOperands(operands)}"
         when "storeh"
             $asm.puts "strh #{armOperands(operands)}"
+        when "loadlinkb"
+            $asm.puts "ldrexb #{armFlippedOperands(operands)}"
+        when "loadlinkh"
+            $asm.puts "ldrexh #{armFlippedOperands(operands)}"
+        when "loadlinki"
+            $asm.puts "ldrex #{armFlippedOperands(operands)}"
+        when "loadlink2i"
+            $asm.puts "ldrexd #{armFlippedOperandsPair(operands)}"
+        when "storecondb"
+            $asm.puts "strexb #{armOperands(operands)}"
+        when "storecondh"
+            $asm.puts "strexh #{armOperands(operands)}"
+        when "storecondi"
+            $asm.puts "strex #{armOperands(operands)}"
+        when "storecond2i"
+            $asm.puts "strexd #{armOperands(operands)}"
         when "loadd"
             $asm.puts "vldr.64 #{armFlippedOperands(operands)}"
         when "stored"

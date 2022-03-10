@@ -320,18 +320,21 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
         case TypeKind::I32: {
             CCallHelpers::JumpList done;
             CCallHelpers::JumpList slowPath;
-            GPRReg dest = wasmCallInfo.results[0].jsr().payloadGPR();
+            JSValueRegs destJSR = wasmCallInfo.results[0].jsr();
 
             slowPath.append(jit.branchIfNotNumber(JSRInfo::returnValueJSR, jit.scratchRegister(), DoNotHaveTagRegisters));
             slowPath.append(jit.branchIfNotInt32(JSRInfo::returnValueJSR, DoNotHaveTagRegisters));
-            jit.zeroExtend32ToWord(JSRInfo::returnValueJSR.payloadGPR(), dest);
+            jit.zeroExtend32ToWord(JSRInfo::returnValueJSR.payloadGPR(), destJSR.payloadGPR());
             done.append(jit.jump());
 
             slowPath.link(&jit);
             jit.setupArguments<decltype(operationConvertToI32)>(JSRInfo::returnValueJSR);
             auto call = jit.call(OperationPtrTag);
             exceptionChecks.append(jit.emitJumpIfException(vm));
-            jit.move(JSRInfo::returnValueJSR.payloadGPR(), dest);
+            jit.move(JSRInfo::returnValueJSR.payloadGPR(), destJSR.payloadGPR());
+#if USE(JSVALUE32_64)
+            jit.move(CCallHelpers::TrustedImm32(0), destJSR.tagGPR());
+#endif
 
             jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
                 linkBuffer.link(call, FunctionPtr<OperationPtrTag>(operationConvertToI32));
