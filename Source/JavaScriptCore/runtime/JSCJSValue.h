@@ -162,8 +162,9 @@ public:
     enum { NullTag =         0xfffffffd };
     enum { UndefinedTag =    0xfffffffc };
     enum { CellTag =         0xfffffffb };
-    enum { EmptyValueTag =   0xfffffffa };
-    enum { DeletedValueTag = 0xfffffff9 };
+    enum { WasmTag =         0xfffffffa };
+    enum { EmptyValueTag =   0xfffffff9 };
+    enum { DeletedValueTag = 0xfffffff8 };
 
     enum { LowestTag =  DeletedValueTag };
 
