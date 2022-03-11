@@ -124,7 +124,10 @@ void LLIntPlan::didCompleteCompilation()
 #else
 #error Unsupported architecture.
 #endif
-            jit.storePtr(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(m_calleesVector[i].ptr())), calleeSlot);
+            jit.storePtr(CCallHelpers::TrustedImmPtr(CalleeBits::boxWasm(m_calleesVector[i].ptr())), calleeSlot.withOffset(PayloadOffset));
+#if USE(JSVALUE32_64)
+            jit.store32(CCallHelpers::TrustedImm32(JSValue::WasmTag), calleeSlot.withOffset(TagOffset));
+#endif
             jumps[i] = jit.jump();
         }
 
