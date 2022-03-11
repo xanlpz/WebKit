@@ -98,16 +98,11 @@ class MemoryManager {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(MemoryManager);
 public:
-    MemoryManager()
-        : m_maxFastMemoryCount(Options::maxNumWebAssemblyFastMemories())
-    {
-    }
-    
+    MemoryManager() = default;
+
+#if ENABLE(WEBASSEMBLY_SIGNALING_MEMORY)
     MemoryResult tryAllocateFastMemory()
     {
-#if CPU(ADDRESS32)
-        UNREACHABLE_FOR_PLATFORM(); // Fast (signaling) memory requires a 64-bit address space
-#endif
         MemoryResult result = [&] {
             Locker locker { m_lock };
             if (m_fastMemories.size() >= m_maxFastMemoryCount)
@@ -128,12 +123,9 @@ public:
         
         return result;
     }
-    
+
     void freeFastMemory(void* basePtr)
     {
-#if CPU(ADDRESS32)
-        UNREACHABLE_FOR_PLATFORM(); // Fast (signaling) memory requires a 64-bit address space
-#endif
         {
             Locker locker { m_lock };
             Gigacage::freeVirtualPages(Gigacage::Primitive, basePtr, Memory::fastMappedBytes());
@@ -142,6 +134,7 @@ public:
         
         dataLogLnIf(Options::logWebAssemblyMemory(), "Freed virtual; state: ", *this);
     }
+#endif
 
     MemoryResult tryAllocateGrowableBoundsCheckingMemory(size_t mappedCapacity)
     {
@@ -176,11 +169,13 @@ public:
     {
         // NOTE: This can be called from a signal handler, but only after we proved that we're in JIT code or WasmLLInt code.
         Locker locker { m_lock };
+#if ENABLE(WEBASSEMBLY_SIGNALING_MEMORY)
         for (void* memory : m_fastMemories) {
             char* start = static_cast<char*>(memory);
             if (start <= address && address <= start + Memory::fastMappedBytes())
                 return true;
         }
+#endif
         uintptr_t addressValue = bitwise_cast<uintptr_t>(address);
         auto iterator = std::upper_bound(m_growableBoundsCheckingMemories.begin(), m_growableBoundsCheckingMemories.end(), std::make_pair(addressValue, 0),
             [](std::pair<uintptr_t, size_t> a, std::pair<uintptr_t, size_t> b) {
@@ -233,13 +228,19 @@ public:
     
     void dump(PrintStream& out) const
     {
+#if ENABLE(WEBASSEMBLY_SIGNALING_MEMORY)
         out.print("fast memories =  ", m_fastMemories.size(), "/", m_maxFastMemoryCount, ", bytes = ", m_physicalBytes, "/", memoryLimit());
+#else
+        out.print("fast memories = N.A., bytes = ", m_physicalBytes, "/", memoryLimit());
+#endif
     }
     
 private:
     Lock m_lock;
-    unsigned m_maxFastMemoryCount { 0 };
+#if ENABLE(WEBASSEMBLY_SIGNALING_MEMORY)
+    unsigned m_maxFastMemoryCount { Options::maxNumWebAssemblyFastMemories() };
     Vector<void*> m_fastMemories;
+#endif
     StdSet<std::pair<uintptr_t, size_t>> m_growableBoundsCheckingMemories;
     size_t m_physicalBytes { 0 };
 };
@@ -298,9 +299,6 @@ MemoryHandle::MemoryHandle(void* memory, size_t size, size_t mappedCapacity, Pag
     if (sharingMode == MemorySharingMode::Default && mode == MemoryMode::BoundsChecking)
         ASSERT(mappedCapacity == size);
 #endif
-#if CPU(ADDRESS32)
-    RELEASE_ASSERT(mode != MemoryMode::Signaling);  // Fast (signaling) memory requires a 64-bit address space
-#endif
 }
 
 MemoryHandle::~MemoryHandle()
@@ -309,6 +307,7 @@ MemoryHandle::~MemoryHandle()
         void* memory = this->memory();
         memoryManager().freePhysicalBytes(m_size);
         switch (m_mode) {
+#if ENABLE(WEBASSEMBLY_SIGNALING_MEMORY)
         case MemoryMode::Signaling:
             if (mprotect(memory, Memory::fastMappedBytes(), PROT_READ | PROT_WRITE)) {
                 dataLog("mprotect failed: ", safeStrerror(errno).data(), "\n");
@@ -316,6 +315,7 @@ MemoryHandle::~MemoryHandle()
             }
             memoryManager().freeFastMemory(memory);
             break;
+#endif
         case MemoryMode::BoundsChecking: {
             switch (m_sharingMode) {
             case MemorySharingMode::Default:
@@ -404,6 +404,7 @@ RefPtr<Memory> Memory::tryCreate(PageCount initial, PageCount maximum, MemorySha
     if (!done)
         return nullptr;
         
+#if ENABLE(WEBASSEMBLY_SIGNALING_MEMORY)
     char* fastMemory = nullptr;
     if (Options::useWebAssemblyFastMemory()) {
         tryAllocate(
@@ -422,7 +423,8 @@ RefPtr<Memory> Memory::tryCreate(PageCount initial, PageCount maximum, MemorySha
 
         return Memory::create(adoptRef(*new MemoryHandle(fastMemory, initialBytes, Memory::fastMappedBytes(), initial, maximum, sharingMode, MemoryMode::Signaling)), WTFMove(notifyMemoryPressure), WTFMove(syncTryToReclaimMemory), WTFMove(growSuccessCallback));
     }
-    
+#endif
+
     if (UNLIKELY(Options::crashIfWebAssemblyCantFastMemory()))
         webAssemblyCouldntGetFastMemory();
 
@@ -465,6 +467,7 @@ RefPtr<Memory> Memory::tryCreate(PageCount initial, PageCount maximum, MemorySha
 
 Memory::~Memory() = default;
 
+#if ENABLE(WEBASSEMBLY_SIGNALING_MEMORY)
 size_t Memory::fastMappedRedzoneBytes()
 {
     return static_cast<size_t>(PageCount::pageSize) * Options::webAssemblyFastMemoryRedzonePages();
@@ -472,13 +475,10 @@ size_t Memory::fastMappedRedzoneBytes()
 
 size_t Memory::fastMappedBytes()
 {
-#if CPU(ADDRESS64)
     static_assert(sizeof(uint64_t) == sizeof(size_t), "We rely on allowing the maximum size of Memory we map to be 2^32 + redzone which is larger than fits in a 32-bit integer that we'd pass to mprotect if this didn't hold.");
     return (static_cast<size_t>(1) << 32) + fastMappedRedzoneBytes();
-#elif CPU(ADDRESS32)
-    UNREACHABLE_FOR_PLATFORM(); // Fast (signaling) memory requires a 64-bit address space
-#endif
 }
+#endif
 
 bool Memory::addressIsInGrowableOrFastMemory(void* address)
 {
@@ -607,6 +607,7 @@ Expected<PageCount, Memory::GrowFailReason> Memory::grow(PageCount delta)
         ASSERT(memory() == newMemory);
         return success();
     }
+#if ENABLE(WEBASSEMBLY_SIGNALING_MEMORY)
     case MemoryMode::Signaling: {
         size_t extraBytes = desiredSize - size();
         RELEASE_ASSERT(extraBytes);
@@ -632,6 +633,7 @@ Expected<PageCount, Memory::GrowFailReason> Memory::grow(PageCount delta)
         m_handle->growToSize(desiredSize);
         return success();
     }
+#endif
     }
 
     RELEASE_ASSERT_NOT_REACHED();

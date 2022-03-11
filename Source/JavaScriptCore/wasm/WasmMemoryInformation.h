@@ -56,7 +56,7 @@ public:
             result.set(baseMemoryPointer);
         if (wasmContextInstancePointer != InvalidGPRReg)
             result.set(wasmContextInstancePointer);
-        if (mode != MemoryMode::Signaling && boundsCheckingSizeRegister != InvalidGPRReg)
+        if (mode == MemoryMode::BoundsChecking && boundsCheckingSizeRegister != InvalidGPRReg)
             result.set(boundsCheckingSizeRegister);
         return result;
     }

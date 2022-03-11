@@ -391,13 +391,13 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         auto mode = instance()->memoryMode();
 
         if (isARM64E()) {
-            if (mode != Wasm::MemoryMode::Signaling)
+            if (mode == Wasm::MemoryMode::BoundsChecking)
                 scratchOrBoundsCheckingSize = pinnedRegs.boundsCheckingSizeRegister;
             else
                 scratchOrBoundsCheckingSize = stackLimitGPR;
             jit.loadPtr(CCallHelpers::Address(scratchJSR.payloadGPR(), Wasm::Instance::offsetOfCachedBoundsCheckingSize()), scratchOrBoundsCheckingSize);
         } else {
-            if (mode != Wasm::MemoryMode::Signaling)
+            if (mode == Wasm::MemoryMode::BoundsChecking)
                 jit.loadPtr(CCallHelpers::Address(scratchJSR.payloadGPR(), Wasm::Instance::offsetOfCachedBoundsCheckingSize()), pinnedRegs.boundsCheckingSizeRegister);
         }
 
