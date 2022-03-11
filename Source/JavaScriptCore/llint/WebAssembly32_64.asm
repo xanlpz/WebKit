@@ -22,14 +22,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 # THE POSSIBILITY OF SUCH DAMAGE.
 
-# - TODO:
-#       Support all ops
-#       multiple return values
-#       not enough scratch gpr registers (see WasmCallingConvention) (still a problem?)
-#       WasmMemory size does not fit on 32bit integer (only an issue if we want signaling mode)
-#       WasmToJS is mostly TODO
-#       atomic ops.
-
 # Constants
 
 const MswOffset = 4

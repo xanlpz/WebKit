@@ -268,7 +268,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
     jit.loadPtr(CCallHelpers::Address(GPRInfo::argumentGPR0, JSWebAssemblyInstance::offsetOfModule()), GPRInfo::argumentGPR0);
     CCallHelpers::Address calleeSlot { GPRInfo::callFrameRegister, CallFrameSlot::callee  * sizeof(Register) };
     jit.storePtr(GPRInfo::argumentGPR0, calleeSlot);
-#if USE(JSVALUE32_64) // FIXME: not sure this is needed
+#if USE(JSVALUE32_64)
     jit.store32(CCallHelpers::TrustedImm32(JSValue::CellTag), calleeSlot.withOffset(TagOffset));
 #endif
 

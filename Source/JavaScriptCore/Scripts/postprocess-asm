@@ -184,8 +184,8 @@ begin
   run_cmd(build_as_cmd(args, i_path))
 ensure
   $intermediate_paths.each { |p|
-#    if File.exist?(p)
-#      File.delete(p)
-#    end
+    if File.exist?(p)
+      File.delete(p)
+    end
   }
 end

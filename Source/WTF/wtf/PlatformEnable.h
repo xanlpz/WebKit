@@ -585,9 +585,7 @@
 #endif
 
 #if USE(JSVALUE32_64)
-/* Disable WebAssembly on all 32bit platforms. Its LLInt tier could
- * work on them, but still needs some final touches. */
-#if CPU(MIPS)
+#if !CPU(ARM)
 #undef ENABLE_WEBASSEMBLY
 #define ENABLE_WEBASSEMBLY 0
 #undef ENABLE_WEBASSEMBLY_B3JIT

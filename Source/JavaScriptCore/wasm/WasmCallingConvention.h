@@ -111,8 +111,8 @@ private:
     {
         ASSERT(isValueType(valueType));
         switch (valueType.kind) {
-        case TypeKind::I64:
         case TypeKind::I32:
+        case TypeKind::I64:
         case TypeKind::Funcref:
         case TypeKind::Externref:
         case TypeKind::Ref:
@@ -202,8 +202,8 @@ private:
     {
         ASSERT(isValueType(valueType));
         switch (valueType.kind) {
-        case TypeKind::I64:
         case TypeKind::I32:
+        case TypeKind::I64:
         case TypeKind::Funcref:
         case TypeKind::Externref:
         case TypeKind::Ref:

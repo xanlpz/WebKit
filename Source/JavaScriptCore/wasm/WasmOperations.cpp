@@ -1039,11 +1039,10 @@ JSC_DEFINE_JIT_OPERATION(operationWasmRetrieveAndClearExceptionIfCatchable, Poin
     void* payload = nullptr;
     if (JSWebAssemblyException* wasmException = jsDynamicCast<JSWebAssemblyException*>(vm, thrownValue))
         payload = bitwise_cast<void*>(wasmException->payload().data());
-#if USE(JSVALUE64) //FIXME
+#if USE(JSVALUE64)
     return PointerPair { bitwise_cast<void*>(JSValue::encode(thrownValue)), payload };
-#else
-    UNREACHABLE_FOR_PLATFORM(); // TODO
-    return PointerPair { nullptr, payload };
+#elif USE(JSVALUE32_64)
+    return PointerPair { bitwise_cast<void*>(thrownValue.payload()), payload };
 #endif
 }
 
