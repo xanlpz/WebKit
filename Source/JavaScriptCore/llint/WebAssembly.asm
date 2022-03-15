@@ -72,18 +72,25 @@ end
 
 # Helper macros
 
-# On JSVALUE64 (PtrSize == 8), each 64-bit argument GPR holds one whole Wasm
-# value. On JSVALUE32_64 (PtrSize == 4), a consecutive pair of even/odd
-# numbered GPRs hold a single Wasm value (even if that value is i32/f32).
-# Enumerating GPRs as pairs then allows us to handle both cases nicely.
-macro forEachArgumentGPRPair(fn)
-    fn(0 * PtrSize, wa0, wa1)
-    fn(2 * PtrSize, wa2, wa3)
-    if not ARMv7
-        fn(4 * PtrSize, wa4, wa5)
+# On JSVALUE64, each 64-bit argument GPR holds one whole Wasm value.
+# On JSVALUE32_64, a consecutive pair of even/odd numbered GPRs hold a single
+# Wasm value (even if that value is i32/f32, the odd numbered GPR holds the
+# more significant word).
+macro forEachArgumentJSR(fn)
+    if JSVALUE64
+        fn(0 * 8, wa0)
+        fn(1 * 8, wa1)
+        fn(2 * 8, wa2)
+        fn(3 * 8, wa3)
+        fn(4 * 8, wa4)
+        fn(5 * 8, wa5)
         if ARM64 or ARM64E
-            fn(6 * PtrSize, wa6, wa7)
+            fn(6 * 8, wa6)
+            fn(7 * 8, wa7)
         end
+    else
+        fn(0 * 8, wa1, wa0)
+        fn(1 * 8, wa3, wa2)
     end
 end
 
@@ -147,17 +154,15 @@ macro checkSwitchToJITForPrologue(codeBlockRegister)
             btpz r0, .recover
             move r0, ws0
 
-            forEachArgumentGPRPair(macro (offset, gprLo, gprHi)
-                # These are 64-bit virtual registers.
 if JSVALUE64
-                loadp -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprLo
-                loadp -offset - 16 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprHi
-else
-                loadp -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprHi
-                loadp -offset - 12 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprLo
-end
+            forEachArgumentJSR(macro (offset, gpr)
+                loadq -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gpr
             end)
-
+else
+            forEachArgumentJSR(macro (offset, gprMsw, gpLsw)
+                load2ia -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gpLsw, gprMsw
+            end)
+end
             forEachArgumentFPR(macro (offset, fpr)
                 loadd -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], fpr
             end)
@@ -355,19 +360,15 @@ end
 .stackHeightOK:
     move ws1, sp
 
-    forEachArgumentGPRPair(macro (offset, gprLo, gprHi)
-        # These are 64-bit virtual registers.
 if JSVALUE64
-        # On 64-bit platforms, store GPRs consecutively
-        storeq gprLo, -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
-        storeq gprHi, -offset - 16 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
-else
-        # On 32-bit platforms, store a pair of 2 GPRs together
-        storei gprHi, -offset -  4 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
-        storei gprLo, -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
-end
+    forEachArgumentJSR(macro (offset, gpr)
+        storeq gpr, -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
     end)
-
+else
+    forEachArgumentJSR(macro (offset, gprMsw, gpLsw)
+        store2ia gpLsw, gprMsw, -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
+    end)
+end
     forEachArgumentFPR(macro (offset, fpr)
         stored fpr, -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr]
     end)
@@ -791,18 +792,15 @@ end)
 
 unprefixedWasmOp(wasm_ret, WasmRet, macro(ctx)
     checkSwitchToJITForEpilogue()
-    forEachArgumentGPRPair(macro (offset, gprLo, gprHi)
-        # These are 64-bit virtual registers.
 if JSVALUE64
-        # On 64-bit platforms, load them into consecutive GPRs.
-        loadq -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprLo
-        loadq -offset - 16 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprHi
-else
-        # On 32-bit platforms, take them as pairs of 2 GPRs.
-        loadi -offset -  4 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprHi
-        loadi -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gprLo
-end
+    forEachArgumentJSR(macro (offset, gpr)
+        loadq -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gpr
     end)
+else
+    forEachArgumentJSR(macro (offset, gprMsw, gpLsw)
+        load2ia -offset - 8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], gpLsw, gprMsw
+    end)
+end
     forEachArgumentFPR(macro (offset, fpr)
         loadd -offset -  8 - CalleeSaveSpaceAsVirtualRegisters * 8[cfr], fpr
     end)
@@ -850,17 +848,15 @@ end
             reloadMemoryRegistersFromInstance(targetWasmInstance, wa0, wa1)
 
             # Load registers from stack
-            forEachArgumentGPRPair(macro (offset, gprLo, gprHi)
-                # These are 64-bit virtual registers.
 if JSVALUE64
-                loadq CallFrameHeaderSize +  8 + offset[sp, ws1, 8], gprLo
-                loadq CallFrameHeaderSize + 16 + offset[sp, ws1, 8], gprHi
-else
-                loadi CallFrameHeaderSize +  8 + offset[sp, ws1, 8], gprLo
-                loadi CallFrameHeaderSize + 12 + offset[sp, ws1, 8], gprHi
-end
+            forEachArgumentJSR(macro (offset, gpr)
+                loadq CallFrameHeaderSize + 8 + offset[sp, ws1, 8], gpr
             end)
-
+else
+            forEachArgumentJSR(macro (offset, gprMsw, gpLsw)
+                load2ia CallFrameHeaderSize + 8 + offset[sp, ws1, 8], gpLsw, gprMsw
+            end)
+end
             forEachArgumentFPR(macro (offset, fpr)
                 loadd CallFrameHeaderSize + 8 + offset[sp, ws1, 8], fpr
             end)
@@ -929,17 +925,15 @@ if ARMv7
 else
             move memoryBase, PC
 end
-            forEachArgumentGPRPair(macro (offset, gprLo, gprHi)
-                # These are 64-bit virtual registers.
 if JSVALUE64
-                storeq gprLo, CallFrameHeaderSize +  8 + offset[ws1, ws0, 8]
-                storeq gprHi, CallFrameHeaderSize + 16 + offset[ws1, ws0, 8]
-else
-                storei gprLo, CallFrameHeaderSize +  8 + offset[ws1, ws0, 8]
-                storei gprHi, CallFrameHeaderSize + 12 + offset[ws1, ws0, 8]
-end
+            forEachArgumentJSR(macro (offset, gpr)
+                storeq gpr, CallFrameHeaderSize + 8 + offset[ws1, ws0, 8]
             end)
-
+else
+            forEachArgumentJSR(macro (offset, gprMsw, gpLsw)
+                store2ia gpLsw, gprMsw, CallFrameHeaderSize + 8 + offset[ws1, ws0, 8]
+            end)
+end
             forEachArgumentFPR(macro (offset, fpr)
                 stored fpr, CallFrameHeaderSize + 8 + offset[ws1, ws0, 8]
             end)
