@@ -69,8 +69,7 @@ const WasmCallingConvention& wasmCallingConvention()
             fprArgumentRegisters[i] = FPRInfo::toArgumentRegister(i);
 
         RegisterSet scratch = RegisterSet::allGPRs();
-        // FIXME: is this ok?
-        scratch.exclude(RegisterSet::calleeSaveRegisters());
+        scratch.exclude(RegisterSet::vmCalleeSaveRegisters());
         scratch.exclude(RegisterSet::macroScratchRegisters());
         scratch.exclude(RegisterSet::reservedHardwareRegisters());
         scratch.exclude(RegisterSet::stackRegisters());
@@ -84,7 +83,13 @@ const WasmCallingConvention& wasmCallingConvention()
         Vector<GPRReg> scratchGPRs;
         for (Reg reg : scratch)
             scratchGPRs.append(reg.gpr());
-        //RELEASE_ASSERT(scratchGPRs.size() >= 2); FIXME: this is empty on ARMv7 right now
+
+        // Need at least one JSValue and an additional GPR
+#if USE(JSVALUE64)
+        RELEASE_ASSERT(scratchGPRs.size() >= 2);
+#elif USE(JSVALUE32_64)
+        RELEASE_ASSERT(scratchGPRs.size() >= 3);
+#endif
 
         RegisterSet callerSaveRegisters = RegisterSet::allRegisters();
         callerSaveRegisters.exclude(RegisterSet::calleeSaveRegisters());

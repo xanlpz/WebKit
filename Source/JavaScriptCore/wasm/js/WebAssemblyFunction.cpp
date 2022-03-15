@@ -145,10 +145,6 @@ RegisterSet WebAssemblyFunction::calleeSaves() const
         tagCalleeSaves.filter(RegisterSet::runtimeTagRegisters());
         result.merge(tagCalleeSaves);
     }
-#if CPU(ARM)
-    result.add(GPRInfo::regCS0);
-    result.add(GPRInfo::regCS1);
-#endif
     return result;
 }
 
@@ -220,13 +216,13 @@ MacroAssemblerCodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
         jit.storePtr(reg, CCallHelpers::Address(GPRInfo::callFrameRegister, offset));
     }
 
-#if CPU(ARM)
-    JSValueRegs scratchJSR { GPRInfo::regCS0, GPRInfo::regCS1 };
-    GPRReg stackLimitGPR = ARMRegisters::lr;
-#else
-    JSValueRegs scratchJSR { Wasm::wasmCallingConvention().prologueScratchGPRs[1] };
-    GPRReg stackLimitGPR = Wasm::wasmCallingConvention().prologueScratchGPRs[0];
+    JSValueRegs scratchJSR {
+#if USE(JSVALUE32_64)
+        Wasm::wasmCallingConvention().prologueScratchGPRs[2],
 #endif
+        Wasm::wasmCallingConvention().prologueScratchGPRs[1]
+    };
+    GPRReg stackLimitGPR = Wasm::wasmCallingConvention().prologueScratchGPRs[0];
     bool stackLimitGPRIsClobbered = false;
     jit.loadPtr(vm.addressOfSoftStackLimit(), stackLimitGPR);
 

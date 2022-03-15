@@ -92,16 +92,12 @@ void marshallJSResult(CCallHelpers& jit, const Signature& signature, const CallI
             boxWasmResult(jit, signature.returnType(0), wasmFrameConvention.results[0], JSRInfo::returnValueJSR);
     } else {
         IndexingType indexingType = ArrayWithUndecided;
-#if USE(JSVALUE64)
-        JSValueRegs scratchJSR = JSValueRegs { wasmCallingConvention().prologueScratchGPRs[1] };
-#elif CPU(ARM)
         JSValueRegs scratchJSR = JSValueRegs {
-            GPRInfo::regCS1, // This is the LLInt PB, and we are returning to JS
-            ARMRegisters::lr // Will be restored in epilogue
-        };
-#else // Other JSVALUE32_64
-#error "Not implemeneted"
+#if USE(JSVALUE32_64)
+            wasmCallingConvention().prologueScratchGPRs[2],
 #endif
+            wasmCallingConvention().prologueScratchGPRs[1]
+        };
 
         ASSERT(scratchJSR.payloadGPR() != GPRReg::InvalidGPRReg);
 #if USE(JSVALUE32_64)
@@ -289,24 +285,17 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
 
         CCallHelpers::Address calleeFrame = CCallHelpers::Address(MacroAssembler::stackPointerRegister, 0);
 
-#if USE(JSVALUE64)
-        // We're going to set the pinned registers after this. So
-        // we can use this as a scratch for now since we saved it above.
-        JSValueRegs scratchJSR { pinnedRegs.baseMemoryPointer };
-#elif CPU(ARM)
         JSValueRegs scratchJSR {
-            wasmContextInstanceGPR, // Never uses Fast TLS, and we are about to set it up
-            ARMRegisters::lr // Already saved in prologue
-        };
-#else // Other JSVALUE32_64
-#error "Not implemeneted"
-#endif
-
-        ASSERT(scratchJSR.payloadGPR() != GPRReg::InvalidGPRReg);
 #if USE(JSVALUE32_64)
-        ASSERT(scratchJSR.tagGPR() != GPRReg::InvalidGPRReg);
-        ASSERT(scratchJSR.payloadGPR() != scratchJSR.tagGPR());
+            wasmCallingConvention().prologueScratchGPRs[2],
 #endif
+            wasmCallingConvention().prologueScratchGPRs[1]
+        };
+
+        if (!Context::useFastTLS()) {
+            jit.loadPtr(CCallHelpers::Address(GPRInfo::callFrameRegister, JSCallingConvention::instanceStackOffset), wasmContextInstanceGPR);
+            jit.loadPtr(CCallHelpers::Address(wasmContextInstanceGPR, JSWebAssemblyInstance::offsetOfInstance()), wasmContextInstanceGPR);
+        }
 
         for (unsigned i = 0; i < signature.argumentCount(); i++) {
             RELEASE_ASSERT(jsFrameConvention.params[i].isStack());
@@ -338,11 +327,6 @@ std::unique_ptr<InternalFunction> createJSToWasmWrapper(CCallHelpers& jit, const
                 } else
                     jit.loadValue(jsParam, wasmFrameConvention.params[i].jsr());
             }
-        }
-
-        if (!Context::useFastTLS()) {
-            jit.loadPtr(CCallHelpers::Address(GPRInfo::callFrameRegister, JSCallingConvention::instanceStackOffset), wasmContextInstanceGPR);
-            jit.loadPtr(CCallHelpers::Address(wasmContextInstanceGPR, JSWebAssemblyInstance::offsetOfInstance()), wasmContextInstanceGPR);
         }
     }
 

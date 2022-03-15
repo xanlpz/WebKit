@@ -62,9 +62,7 @@ struct CallInformation {
 #if USE(JSVALUE32_64)
                 usedResultRegisters.set(loc.jsr().tagGPR());
 #endif
-            }
-
-            if (loc.isFPR())
+            } else if (loc.isFPR())
                 usedResultRegisters.set(loc.fpr());
         }
 
