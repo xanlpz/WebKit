@@ -2304,9 +2304,18 @@ public:
         return Call(m_assembler.b(), Call::LinkableNearTail);
     }
 
-    // FIXME: why is this the same than nearCall() in ARM64? is it right?
+    void branchAlignmentPadding()
+    {
+        nop();
+        // This is a fake jump, we only use it to detect this padding
+        // in the branch compactor and remove if its presence will
+        // break the 32-bit alignment.
+        jumpsToLink().append(LinkRecord(m_assembler.label().offset()));
+    }
+
     ALWAYS_INLINE Call threadSafePatchableNearCall()
     {
+        branchAlignmentPadding();
         invalidateAllTempRegisters();
         moveFixedWidthEncoding(TrustedImm32(0), dataTempRegister);
         return Call(m_assembler.blx(dataTempRegister), Call::LinkableNear);

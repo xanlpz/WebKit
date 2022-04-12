@@ -423,7 +423,8 @@ public:
                     JumpNoCondition = JUMP_ENUM_WITH_SIZE(1, 5 * sizeof(uint16_t)),
                     JumpCondition = JUMP_ENUM_WITH_SIZE(2, 6 * sizeof(uint16_t)),
                     JumpNoConditionFixedSize = JUMP_ENUM_WITH_SIZE(3, 5 * sizeof(uint16_t)),
-                    JumpConditionFixedSize = JUMP_ENUM_WITH_SIZE(4, 6 * sizeof(uint16_t))
+                    JumpConditionFixedSize = JUMP_ENUM_WITH_SIZE(4, 6 * sizeof(uint16_t)),
+                    JumpBranchPadding = JUMP_ENUM_WITH_SIZE(5, 5 * sizeof(uint16_t))
     };
     enum JumpLinkType { 
         LinkInvalid = JUMP_ENUM_WITH_SIZE(0, 0),
@@ -438,6 +439,16 @@ public:
 
     class LinkRecord {
     public:
+        // Used for the fake jumps to maintain branch alignment in the branch compactor.
+        LinkRecord(intptr_t from)
+        {
+            data.realTypes.m_from = from;
+            data.realTypes.m_to = 0;
+            data.realTypes.m_type = JumpBranchPadding;
+            data.realTypes.m_linkType = LinkInvalid;
+            data.realTypes.m_condition = ConditionInvalid;
+        }
+
         LinkRecord(intptr_t from, intptr_t to, JumpType type, Condition condition)
         {
             data.realTypes.m_from = from;

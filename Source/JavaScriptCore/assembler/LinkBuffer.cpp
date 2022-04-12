@@ -276,6 +276,10 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, JITCompi
 
     if (m_shouldPerformBranchCompaction) {
         for (unsigned i = 0; i < jumpCount; ++i) {
+#if CPU(ARM_THUMB2)
+            if (jumpsToLink[i].type() == Assembler::JumpBranchPadding)
+                continue;
+#endif
             int offset = readPtr - writePtr;
             ASSERT(!(offset & 1));
                 
@@ -351,6 +355,10 @@ void LinkBuffer::copyCompactAndLinkCode(MacroAssembler& macroAssembler, JITCompi
     recordLinkOffsets(m_assemblerStorage, readPtr, initialSize, readPtr - writePtr);
         
     for (unsigned i = 0; i < jumpCount; ++i) {
+#if CPU(ARM_THUMB2)
+        if (jumpsToLink[i].type() == Assembler::JumpBranchPadding)
+            continue;
+#endif
         uint8_t* location = codeOutData + jumpsToLink[i].from();
 #if CPU(ARM64)
         const intptr_t to = jumpsToLink[i].to(&macroAssembler.m_assembler);
